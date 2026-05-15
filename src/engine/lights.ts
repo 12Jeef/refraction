@@ -39,6 +39,7 @@ export class PlaneLight extends Light {
     const sin = Math.sin(this.angle * (Math.PI / 180));
     for (let i = -this.length / 2; i <= this.length / 2; i += step) {
       rays.push({
+        origin: [...this.position],
         position: [...this.position],
         angle: [cos, sin],
         wavelengths: this.wavelengths,
@@ -51,11 +52,12 @@ export class PlaneLight extends Light {
 
 export class PointLight extends Light {
   public emit(density: number): Ray[] {
-    const step = Math.max(0.05, lerp(360 / 10, 0.05, density));
+    const step = Math.max(0.01, lerp(360 / 10, 0.01, density));
     const rays: Ray[] = [];
-    for (let angle = 0; angle < 360; angle += step) {
+    for (let angle = 0.02; angle < 359.98; angle += step) {
       const rad = (angle * Math.PI) / 180;
       rays.push({
+        origin: [...this.position],
         position: [...this.position],
         angle: [Math.cos(rad), Math.sin(rad)],
         wavelengths: this.wavelengths,
@@ -82,7 +84,7 @@ export class DirectionalLight extends Light {
 
   public emit(density: number): Ray[] {
     const rays: Ray[] = [];
-    const step = Math.max(0.05, lerp(this.angleSpread / 10, 0.05, density));
+    const step = Math.max(0.01, lerp(this.angleSpread / 10, 0.01, density));
     for (
       let angle = -this.angleSpread / 2;
       angle <= this.angleSpread / 2;
@@ -92,6 +94,7 @@ export class DirectionalLight extends Light {
       const cos = Math.cos(rad);
       const sin = Math.sin(rad);
       rays.push({
+        origin: [...this.position],
         position: [...this.position],
         angle: [cos, sin],
         wavelengths: this.wavelengths,

@@ -1,4 +1,10 @@
-import type { FullSDFOutput, Ray, SimulationParams, vec2 } from "../types";
+import type {
+  FullSDFOutput,
+  Line,
+  Ray,
+  SimulationParams,
+  vec2,
+} from "../types";
 import {
   CHUNK_SIZE,
   getChunk,
@@ -21,7 +27,7 @@ export const drawLine = (
   start: vec2,
   end: vec2,
   value: number,
-): number => {
+): { max: number; line: Line } => {
   const dx = end[0] - start[0];
   const dy = end[1] - start[1];
   const steps = Math.ceil(Math.sqrt(dx * dx + dy * dy));
@@ -35,30 +41,24 @@ export const drawLine = (
       max = Math.max(max, buffer[y * size[0] + x]);
     }
   }
-  return max;
+  return { max, line: { start, end, value } };
 };
 
-export const drawAndMoveRay = (
-  ray: Ray,
-  distance: number,
-  size: vec2,
-  buffer: Float32Array,
-): number => {
-  const newPosition: vec2 = [
-    ray.position[0] + ray.angle[0] * distance,
-    ray.position[1] + ray.angle[1] * distance,
-  ];
-  const max = drawLine(
+export const drawRay = (ray: Ray, size: vec2, buffer: Float32Array) => {
+  return drawLine(
     size,
     buffer,
+    ray.origin,
     ray.position,
-    newPosition,
     typeof ray.wavelengths.amplitude === "function"
       ? ray.wavelengths.amplitude(meanWavelength(ray.wavelengths))
       : ray.wavelengths.amplitude,
   );
-  ray.position = newPosition;
-  return max;
+};
+
+export const moveRay = (ray: Ray, distance: number) => {
+  ray.position[0] += ray.angle[0] * distance;
+  ray.position[1] += ray.angle[1] * distance;
 };
 
 export const validRay = (ray: Ray, size: vec2): boolean => {
@@ -74,26 +74,34 @@ export const stepRays = (
   glassSet: GlassSet,
   rays: Ray[],
   params: SimulationParams,
-): { rays: Ray[]; max: number } => {
+  buffer: Float32Array,
+): { rays: Ray[]; max: number; lines: Line[] } => {
   const newRays: Ray[] = [];
   let max = 0;
+  const lines: Line[] = [];
   for (const ray of rays) {
     const glass = ray.glass;
     if (glass !== null) {
-      const sdf = glass.sdf(ray.position);
-      if (sdf.distance < 0.1) {
+      // const sdf = glass.sdf(ray.position);
+      // if (sdf.distance < 0.1) {
+      //   const { max: newMax, line } = drawRay(ray, params.size, buffer);
+      //   max = Math.max(max, newMax);
+      //   lines.push(line);
+      //   continue;
+      // }
+      // moveRay(ray, sdf.distance);
+      moveRay(ray, 1000);
+      if (!validRay(ray, params.size)) {
+        const { max: newMax, line } = drawRay(ray, params.size, buffer);
+        max = Math.max(max, newMax);
+        lines.push(line);
         continue;
       }
-      max = Math.max(
-        max,
-        drawAndMoveRay(ray, sdf.distance, params.size, params.buffer),
-      );
-      if (!validRay(ray, params.size)) continue;
       newRays.push(ray);
       continue;
     }
     const [chunkX, chunkY] = getChunk(ray.position);
-    const glasses = glassSet.getGlassesAt([chunkX, chunkY]);
+    const glasses = glassSet.glasses; // glassSet.getGlassesAt(chunkX, chunkY);
     if (glasses.length === 0) {
       const chunkMinX = chunkX * CHUNK_SIZE;
       const chunkMinY = chunkY * CHUNK_SIZE;
@@ -104,11 +112,13 @@ export const stepRays = (
           [chunkMinX, chunkMinY],
           [chunkMaxX, chunkMaxY],
         ]) + 1e-3;
-      max = Math.max(
-        max,
-        drawAndMoveRay(ray, distance, params.size, params.buffer),
-      );
-      if (!validRay(ray, params.size)) continue;
+      moveRay(ray, distance);
+      if (!validRay(ray, params.size)) {
+        const { max: newMax, line } = drawRay(ray, params.size, buffer);
+        max = Math.max(max, newMax);
+        lines.push(line);
+        continue;
+      }
       newRays.push(ray);
       continue;
     }
@@ -120,14 +130,30 @@ export const stepRays = (
       { distance: Infinity, normal: [0, 0], glass: null } as FullSDFOutput,
     );
     if (sdf.distance < 0.1) {
+      const { max: newMax, line } = drawRay(ray, params.size, buffer);
+      max = Math.max(max, newMax);
+      lines.push(line);
       newRays.push(...transitionRay(ray, sdf, params.dwavelength));
       continue;
     }
-    drawAndMoveRay(ray, sdf.distance, params.size, params.buffer);
-    if (!validRay(ray, params.size)) continue;
+    moveRay(ray, sdf.distance);
+    if (!validRay(ray, params.size)) {
+      const { max: newMax, line } = drawRay(ray, params.size, buffer);
+      max = Math.max(max, newMax);
+      lines.push(line);
+      continue;
+    }
     newRays.push(ray);
   }
-  return { rays: newRays, max };
+  return { rays: newRays, max, lines };
+};
+
+const bufferCache = new Map<string, Float32Array>();
+const allocBuffer = (size: vec2): Float32Array => {
+  const key = size.join(",");
+  if (!bufferCache.has(key))
+    bufferCache.set(key, new Float32Array(size[0] * size[1]));
+  return bufferCache.get(key)!;
 };
 
 export const simulateRays = (
@@ -135,13 +161,28 @@ export const simulateRays = (
   rays: Ray[],
   params: SimulationParams,
 ) => {
-  if (params.buffer.length !== params.size[0] * params.size[1])
-    throw new Error("Buffer size does not match sandbox size");
+  const { ctx } = params;
+  const buffer = allocBuffer(params.size);
+  buffer.fill(0);
   let max = 0;
+  const lines: Line[] = [];
   while (rays.length > 0) {
-    const { rays: newRays, max: newMax } = stepRays(glassSet, rays, params);
+    const {
+      rays: newRays,
+      max: newMax,
+      lines: newLines,
+    } = stepRays(glassSet, rays, params, buffer);
     rays = newRays;
     max = Math.max(max, newMax);
+    lines.push(...newLines);
   }
-  for (let i = 0; i < params.buffer.length; i++) params.buffer[i] /= max;
+  const data = ctx.createImageData(params.size[0], params.size[1]);
+  for (let i = 0; i < buffer.length; i++) {
+    const value = Math.min(255, (buffer[i] / (max * 1e-1)) * 255);
+    data.data[i * 4] = value;
+    data.data[i * 4 + 1] = value;
+    data.data[i * 4 + 2] = value;
+    data.data[i * 4 + 3] = 255;
+  }
+  ctx.putImageData(data, 0, 0);
 };

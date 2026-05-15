@@ -15,6 +15,7 @@ export type Wavelengths =
     };
 
 export type Ray = {
+  origin: vec2;
   position: vec2;
   angle: vec2;
   wavelengths: Wavelengths;
@@ -63,5 +64,11 @@ export type FullSDFOutput = SDFOutput & {
 export type SimulationParams = {
   dwavelength: number;
   size: vec2;
-  buffer: Float32Array;
+  ctx: CanvasRenderingContext2D;
+};
+
+export type Line = {
+  start: vec2;
+  end: vec2;
+  value: number;
 };

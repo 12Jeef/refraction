@@ -63,12 +63,12 @@ export class CircleGlass extends Glass {
     };
   }
 
-  protected sdfInternal(position: [number, number]): SDFOutput {
+  protected sdfInternal(position: vec2): SDFOutput {
     const dx = position[0] - this.center[0];
     const dy = position[1] - this.center[1];
-    const distance = Math.sqrt(dx * dx + dy * dy);
-    const normal: [number, number] = [dx / distance, dy / distance];
-    return { distance, normal };
+    const distance = Math.hypot(dx, dy);
+    const normal: vec2 = [dx / distance, dy / distance];
+    return { distance: distance - this.radius, normal };
   }
 }
 
@@ -97,11 +97,11 @@ export class GlassSet {
     }
   }
 
-  public getGlassesAt(chunk: vec2): Glass[] {
+  public getGlassesAt(chunkX: number, chunkY: number): Glass[] {
     const glasses: Glass[] = [];
     for (let dx = -1; dx <= 1; dx++) {
       for (let dy = -1; dy <= 1; dy++) {
-        const chunkGlasses = this.lookup.get(chunk[0] + dx)?.get(chunk[1] + dy);
+        const chunkGlasses = this.lookup.get(chunkX + dx)?.get(chunkY + dy);
         if (chunkGlasses) glasses.push(...chunkGlasses);
       }
     }

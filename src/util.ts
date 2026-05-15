@@ -88,52 +88,49 @@ export const transitionRay = (
   const pastMaterial = ray.glass?.material ?? vacuumMaterial;
   const newMaterial = sdfOutput.glass?.material ?? vacuumMaterial;
   const { normal } = sdfOutput;
+  const incidentDotNormal = ray.angle[0] * normal[0] + ray.angle[1] * normal[1];
+  // const rays =
+  //   typeof pastMaterial.refractiveIndex === "number" &&
+  //   typeof newMaterial.refractiveIndex === "number"
+  //     ? [ray]
+  //     : subdivideRay(ray, dwavelength);
+  const rays = [ray];
   const newRays: Ray[] = [];
-  const normalAngle = Math.atan2(normal[1], normal[0]);
-  const incidentAngleRelNorm = Math.acos(
-    ray.angle[0] * normal[0] + ray.angle[1] * normal[1],
-  );
-  const crs = cross(ray.angle, normal);
-  const rays =
-    typeof pastMaterial.refractiveIndex === "number" &&
-    typeof newMaterial.refractiveIndex === "number"
-      ? [ray]
-      : subdivideRay(ray, dwavelength);
   for (const ray of rays) {
+    const reflectedAngleVec: vec2 = [
+      ray.angle[0] - 2 * incidentDotNormal * normal[0],
+      ray.angle[1] - 2 * incidentDotNormal * normal[1],
+    ];
     const n1 = refractiveIndex(pastMaterial, ray.wavelengths);
     const n2 = refractiveIndex(newMaterial, ray.wavelengths);
-    const reflectedAngle = normalAngle - incidentAngleRelNorm * Math.sign(crs);
-    const refractedAngleRelNorm = Math.asin(
-      (n1 / n2) * Math.sin(incidentAngleRelNorm),
-    );
-    const refractedAngle =
-      normalAngle + Math.PI + refractedAngleRelNorm * Math.sign(crs);
-    const R0 = ((n1 - n2) / (n1 + n2)) ** 2;
-    const R = R0 + (1 - R0) * (1 - Math.cos(incidentAngleRelNorm)) ** 5;
-    const T = 1 - R;
-    const reflectedAngleVec: vec2 = [
-      Math.cos(reflectedAngle),
-      Math.sin(reflectedAngle),
-    ];
+    const eta = n1 / n2;
+    const normalCoeff =
+      eta * incidentDotNormal -
+      Math.sqrt(1 - eta * eta * (1 - incidentDotNormal * incidentDotNormal));
     const refractedAngleVec: vec2 = [
-      Math.cos(refractedAngle),
-      Math.sin(refractedAngle),
+      eta * ray.angle[0] - normalCoeff * normal[0],
+      eta * ray.angle[1] - normalCoeff * normal[1],
     ];
-    if (R > 1e-3)
+    const R0 = ((n1 - n2) / (n1 + n2)) ** 2;
+    const R = R0 + (1 - R0) * (1 + incidentDotNormal) ** 5;
+    const T = 1 - R;
+    if (R > 0.1)
       newRays.push({
+        origin: ray.position,
         position: [
-          ray.position[0] + reflectedAngleVec[0],
-          ray.position[1] + reflectedAngleVec[1],
+          ray.position[0] + 1 * reflectedAngleVec[0],
+          ray.position[1] + 1 * reflectedAngleVec[1],
         ],
         wavelengths: amplifyWavelengths(ray.wavelengths, R),
         angle: reflectedAngleVec,
         glass: ray.glass,
       });
-    if (T > 1e-3)
+    if (T > 0.1)
       newRays.push({
+        origin: ray.position,
         position: [
-          ray.position[0] + refractedAngleVec[0],
-          ray.position[1] + refractedAngleVec[1],
+          ray.position[0] + 1 * refractedAngleVec[0],
+          ray.position[1] + 1 * refractedAngleVec[1],
         ],
         wavelengths: amplifyWavelengths(ray.wavelengths, T),
         angle: refractedAngleVec,
