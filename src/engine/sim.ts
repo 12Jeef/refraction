@@ -1,10 +1,4 @@
-import type {
-  FullSDFOutput,
-  Ray,
-  SDFOutput,
-  SimulationParams,
-  vec2,
-} from "../types";
+import type { FullSDFOutput, Ray, SimulationParams, vec2 } from "../types";
 import {
   CHUNK_SIZE,
   getChunk,

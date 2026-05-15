@@ -7,7 +7,6 @@ import type {
   Wavelengths,
 } from "../types";
 import { lerp } from "../util";
-import { vacuumMaterial } from "./glass";
 
 export abstract class Light {
   public position: vec2;
