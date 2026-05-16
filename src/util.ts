@@ -6,6 +6,7 @@ import type {
   Ray,
   rect,
   vec2,
+  vec3,
   Wavelengths,
 } from "./types";
 
@@ -89,12 +90,11 @@ export const transitionRay = (
   const newMaterial = sdfOutput.glass?.material ?? vacuumMaterial;
   const { normal } = sdfOutput;
   const incidentDotNormal = ray.angle[0] * normal[0] + ray.angle[1] * normal[1];
-  // const rays =
-  //   typeof pastMaterial.refractiveIndex === "number" &&
-  //   typeof newMaterial.refractiveIndex === "number"
-  //     ? [ray]
-  //     : subdivideRay(ray, dwavelength);
-  const rays = [ray];
+  const rays =
+    typeof pastMaterial.refractiveIndex === "number" &&
+    typeof newMaterial.refractiveIndex === "number"
+      ? [ray]
+      : subdivideRay(ray, dwavelength);
   const newRays: Ray[] = [];
   for (const ray of rays) {
     const reflectedAngleVec: vec2 = [
@@ -179,4 +179,72 @@ export const lineDistance = (point: vec2, line: line): number => {
   return Math.sqrt(
     (point[0] - closestPoint[0]) ** 2 + (point[1] - closestPoint[1]) ** 2,
   );
+};
+
+export const wavelengthToRGB = (
+  wavelength: number,
+  amplitude: number,
+): vec3 => {
+  const rgb: vec3 = [0, 0, 0];
+  if (wavelength >= 380 && wavelength < 440) {
+    rgb[0] = -(wavelength - 440) / (440 - 380);
+    rgb[1] = 0;
+    rgb[2] = 1;
+  } else if (wavelength >= 440 && wavelength < 490) {
+    rgb[0] = 0;
+    rgb[1] = (wavelength - 440) / (490 - 440);
+    rgb[2] = 1;
+  } else if (wavelength >= 490 && wavelength < 510) {
+    rgb[0] = 0;
+    rgb[1] = 1;
+    rgb[2] = -(wavelength - 510) / (510 - 490);
+  } else if (wavelength >= 510 && wavelength < 580) {
+    rgb[0] = (wavelength - 510) / (580 - 510);
+    rgb[1] = 1;
+    rgb[2] = 0;
+  } else if (wavelength >= 580 && wavelength < 645) {
+    rgb[0] = 1;
+    rgb[1] = -(wavelength - 645) / (645 - 580);
+    rgb[2] = 0;
+  } else if (wavelength >= 645 && wavelength <= 780) {
+    rgb[0] = 1;
+    rgb[1] = 0;
+    rgb[2] = 0;
+  }
+  const factor =
+    wavelength >= 380 && wavelength < 420
+      ? 0.3 + (0.7 * (wavelength - 380)) / (420 - 380)
+      : wavelength >= 420 && wavelength < 701
+        ? 1
+        : wavelength >= 701 && wavelength <= 780
+          ? 0.3 + (0.7 * (780 - wavelength)) / (780 - 700)
+          : 0;
+  rgb[0] *= factor * amplitude;
+  rgb[1] *= factor * amplitude;
+  rgb[2] *= factor * amplitude;
+  return rgb;
+};
+
+export const wavelengthsToRGB = (
+  wavelengths: Wavelengths,
+  dwavelength: number,
+): vec3 => {
+  if ("length" in wavelengths)
+    return wavelengthToRGB(wavelengths.length, wavelengths.amplitude);
+  const rgb: vec3 = [0, 0, 0];
+  for (
+    let l = wavelengths.range[0];
+    l < wavelengths.range[1];
+    l += dwavelength
+  ) {
+    const amplitude =
+      typeof wavelengths.amplitude === "number"
+        ? wavelengths.amplitude
+        : wavelengths.amplitude(l);
+    const wavelengthRGB = wavelengthToRGB(l, amplitude);
+    rgb[0] += wavelengthRGB[0];
+    rgb[1] += wavelengthRGB[1];
+    rgb[2] += wavelengthRGB[2];
+  }
+  return rgb;
 };

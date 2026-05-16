@@ -1,9 +1,11 @@
 import type {
+  Buffers,
   FullSDFOutput,
   Line,
   Ray,
   SimulationParams,
   vec2,
+  vec3,
 } from "../types";
 import {
   CHUNK_SIZE,
@@ -11,6 +13,7 @@ import {
   meanWavelength,
   rectOutlineMoveDistance,
   transitionRay,
+  wavelengthsToRGB,
 } from "../util";
 import type { GlassSet } from "./glass";
 import type { Light } from "./lights";
@@ -23,10 +26,10 @@ export const createRays = (lights: Light[], density: number): Ray[] => {
 
 export const drawLine = (
   size: vec2,
-  buffer: Float32Array,
+  buffers: Buffers,
   start: vec2,
   end: vec2,
-  value: number,
+  rgb: vec3,
 ): { max: number; line: Line } => {
   const dx = end[0] - start[0];
   const dy = end[1] - start[1];
@@ -37,22 +40,32 @@ export const drawLine = (
     const x = Math.floor(start[0] + t * dx);
     const y = Math.floor(start[1] + t * dy);
     if (x >= 0 && y >= 0 && x < size[0] && y < size[1]) {
-      buffer[y * size[0] + x] += value;
-      max = Math.max(max, buffer[y * size[0] + x]);
+      buffers.red[y * size[0] + x] += rgb[0];
+      buffers.green[y * size[0] + x] += rgb[1];
+      buffers.blue[y * size[0] + x] += rgb[2];
+      max = Math.max(
+        max,
+        buffers.red[y * size[0] + x],
+        buffers.green[y * size[0] + x],
+        buffers.blue[y * size[0] + x],
+      );
     }
   }
-  return { max, line: { start, end, value } };
+  return { max, line: { start, end, rgb } };
 };
 
-export const drawRay = (ray: Ray, size: vec2, buffer: Float32Array) => {
+export const drawRay = (
+  ray: Ray,
+  size: vec2,
+  buffers: Buffers,
+  dwavelength: number,
+) => {
   return drawLine(
     size,
-    buffer,
+    buffers,
     ray.origin,
     ray.position,
-    typeof ray.wavelengths.amplitude === "function"
-      ? ray.wavelengths.amplitude(meanWavelength(ray.wavelengths))
-      : ray.wavelengths.amplitude,
+    wavelengthsToRGB(ray.wavelengths, dwavelength),
   );
 };
 
@@ -74,7 +87,7 @@ export const stepRays = (
   glassSet: GlassSet,
   rays: Ray[],
   params: SimulationParams,
-  buffer: Float32Array,
+  buffers: Buffers,
 ): { rays: Ray[]; max: number; lines: Line[] } => {
   const newRays: Ray[] = [];
   let max = 0;
@@ -85,7 +98,12 @@ export const stepRays = (
     if (glass !== null) {
       const sdf = glass.sdf(ray.position);
       if (sdf.distance < 0.1) {
-        const { max: newMax, line } = drawRay(ray, params.size, buffer);
+        const { max: newMax, line } = drawRay(
+          ray,
+          params.size,
+          buffers,
+          params.dwavelength,
+        );
         max = Math.max(max, newMax);
         lines.push(line);
         newRays.push(
@@ -95,7 +113,12 @@ export const stepRays = (
       }
       moveRay(ray, sdf.distance);
       if (!validRay(ray, params.size)) {
-        const { max: newMax, line } = drawRay(ray, params.size, buffer);
+        const { max: newMax, line } = drawRay(
+          ray,
+          params.size,
+          buffers,
+          params.dwavelength,
+        );
         max = Math.max(max, newMax);
         lines.push(line);
         continue;
@@ -117,7 +140,12 @@ export const stepRays = (
         ]) + 1e-3;
       moveRay(ray, distance);
       if (!validRay(ray, params.size)) {
-        const { max: newMax, line } = drawRay(ray, params.size, buffer);
+        const { max: newMax, line } = drawRay(
+          ray,
+          params.size,
+          buffers,
+          params.dwavelength,
+        );
         max = Math.max(max, newMax);
         lines.push(line);
         continue;
@@ -133,7 +161,12 @@ export const stepRays = (
       { distance: Infinity, normal: [0, 0], glass: null } as FullSDFOutput,
     );
     if (sdf.distance < 0.1) {
-      const { max: newMax, line } = drawRay(ray, params.size, buffer);
+      const { max: newMax, line } = drawRay(
+        ray,
+        params.size,
+        buffers,
+        params.dwavelength,
+      );
       max = Math.max(max, newMax);
       lines.push(line);
       newRays.push(...transitionRay(ray, sdf, params.dwavelength));
@@ -141,7 +174,12 @@ export const stepRays = (
     }
     moveRay(ray, sdf.distance);
     if (!validRay(ray, params.size)) {
-      const { max: newMax, line } = drawRay(ray, params.size, buffer);
+      const { max: newMax, line } = drawRay(
+        ray,
+        params.size,
+        buffers,
+        params.dwavelength,
+      );
       max = Math.max(max, newMax);
       lines.push(line);
       continue;
@@ -152,8 +190,8 @@ export const stepRays = (
 };
 
 const bufferCache = new Map<string, Float32Array>();
-const allocBuffer = (size: vec2): Float32Array => {
-  const key = size.join(",");
+const allocBuffer = (size: vec2, type: string): Float32Array => {
+  const key = size.join(",") + "," + type;
   if (!bufferCache.has(key))
     bufferCache.set(key, new Float32Array(size[0] * size[1]));
   return bufferCache.get(key)!;
@@ -165,8 +203,17 @@ export const simulateRays = (
   params: SimulationParams,
 ) => {
   const { ctx } = params;
-  const buffer = allocBuffer(params.size);
-  buffer.fill(0);
+  const bufferRed = allocBuffer(params.size, "red");
+  const bufferGreen = allocBuffer(params.size, "green");
+  const bufferBlue = allocBuffer(params.size, "blue");
+  bufferRed.fill(0);
+  bufferGreen.fill(0);
+  bufferBlue.fill(0);
+  const buffers: Buffers = {
+    red: bufferRed,
+    green: bufferGreen,
+    blue: bufferBlue,
+  };
   let max = 0;
   const lines: Line[] = [];
   while (rays.length > 0) {
@@ -174,17 +221,22 @@ export const simulateRays = (
       rays: newRays,
       max: newMax,
       lines: newLines,
-    } = stepRays(glassSet, rays, params, buffer);
+    } = stepRays(glassSet, rays, params, buffers);
     rays = newRays;
     max = Math.max(max, newMax);
     lines.push(...newLines);
   }
   const data = ctx.createImageData(params.size[0], params.size[1]);
-  for (let i = 0; i < buffer.length; i++) {
-    const value = Math.min(255, (buffer[i] / (max * 2.5e-2)) * 255);
-    data.data[i * 4] = value;
-    data.data[i * 4 + 1] = value;
-    data.data[i * 4 + 2] = value;
+  for (let i = 0; i < params.size[0] * params.size[1]; i++) {
+    data.data[i * 4] = Math.min(255, (buffers.red[i] / (max * 2.5e-2)) * 255);
+    data.data[i * 4 + 1] = Math.min(
+      255,
+      (buffers.green[i] / (max * 2.5e-2)) * 255,
+    );
+    data.data[i * 4 + 2] = Math.min(
+      255,
+      (buffers.blue[i] / (max * 2.5e-2)) * 255,
+    );
     data.data[i * 4 + 3] = 255;
   }
   ctx.putImageData(data, 0, 0);

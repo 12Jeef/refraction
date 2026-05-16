@@ -1,6 +1,7 @@
 import type { Glass } from "./engine/glass";
 
 export type vec2 = [number, number];
+export type vec3 = [number, number, number];
 export type line = [vec2, vec2];
 export type rect = [vec2, vec2];
 
@@ -77,8 +78,13 @@ export type SimulationParams = {
   ctx: CanvasRenderingContext2D;
 };
 
+export type Buffers = {
+  red: Float32Array;
+  green: Float32Array;
+  blue: Float32Array;
+};
 export type Line = {
   start: vec2;
   end: vec2;
-  value: number;
+  rgb: vec3;
 };

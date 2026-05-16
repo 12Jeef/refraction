@@ -36,7 +36,7 @@ function App() {
     });
     const rays = light.emit(1);
     const params: SimulationParams = {
-      dwavelength: 100,
+      dwavelength: 25,
       size: [canvas.width, canvas.height],
       ctx,
     };
