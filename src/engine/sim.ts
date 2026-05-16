@@ -10,7 +10,6 @@ import type {
 import {
   CHUNK_SIZE,
   getChunk,
-  meanWavelength,
   rectOutlineMoveDistance,
   transitionRay,
   wavelengthsToRGB,

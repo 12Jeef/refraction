@@ -9,7 +9,7 @@ import type {
   SDFOutput,
   vec2,
 } from "../types";
-import { dot, getChunk, lineDistance } from "../util";
+import { getChunk, lineDistance } from "../util";
 
 export const vacuumMaterial: Material = {
   refractiveIndex: 1,
