@@ -54,18 +54,13 @@ export const drawLine = (
   return { max, line: { start, end, rgb } };
 };
 
-export const drawRay = (
-  ray: Ray,
-  size: vec2,
-  buffers: Buffers,
-  dwavelength: number,
-) => {
+export const drawRay = (ray: Ray, size: vec2, buffers: Buffers) => {
   return drawLine(
     size,
     buffers,
     ray.origin,
     ray.position,
-    wavelengthsToRGB(ray.wavelengths, dwavelength),
+    wavelengthsToRGB(ray.wavelengths, 25),
   );
 };
 
@@ -98,12 +93,7 @@ export const stepRays = (
     if (glass !== null) {
       const sdf = glass.sdf(ray.position);
       if (sdf.distance < 0.1) {
-        const { max: newMax, line } = drawRay(
-          ray,
-          params.size,
-          buffers,
-          params.dwavelength,
-        );
+        const { max: newMax, line } = drawRay(ray, params.size, buffers);
         max = Math.max(max, newMax);
         lines.push(line);
         newRays.push(
@@ -113,12 +103,7 @@ export const stepRays = (
       }
       moveRay(ray, sdf.distance);
       if (!validRay(ray, params.size)) {
-        const { max: newMax, line } = drawRay(
-          ray,
-          params.size,
-          buffers,
-          params.dwavelength,
-        );
+        const { max: newMax, line } = drawRay(ray, params.size, buffers);
         max = Math.max(max, newMax);
         lines.push(line);
         continue;
@@ -140,12 +125,7 @@ export const stepRays = (
         ]) + 1e-3;
       moveRay(ray, distance);
       if (!validRay(ray, params.size)) {
-        const { max: newMax, line } = drawRay(
-          ray,
-          params.size,
-          buffers,
-          params.dwavelength,
-        );
+        const { max: newMax, line } = drawRay(ray, params.size, buffers);
         max = Math.max(max, newMax);
         lines.push(line);
         continue;
@@ -161,12 +141,7 @@ export const stepRays = (
       { distance: Infinity, normal: [0, 0], glass: null } as FullSDFOutput,
     );
     if (sdf.distance < 0.1) {
-      const { max: newMax, line } = drawRay(
-        ray,
-        params.size,
-        buffers,
-        params.dwavelength,
-      );
+      const { max: newMax, line } = drawRay(ray, params.size, buffers);
       max = Math.max(max, newMax);
       lines.push(line);
       newRays.push(...transitionRay(ray, sdf, params.dwavelength));
@@ -174,12 +149,7 @@ export const stepRays = (
     }
     moveRay(ray, sdf.distance);
     if (!validRay(ray, params.size)) {
-      const { max: newMax, line } = drawRay(
-        ray,
-        params.size,
-        buffers,
-        params.dwavelength,
-      );
+      const { max: newMax, line } = drawRay(ray, params.size, buffers);
       max = Math.max(max, newMax);
       lines.push(line);
       continue;

@@ -5,10 +5,11 @@ import type {
   FullSDFOutput,
   GlassProps,
   Material,
+  PolygonGlassProps,
   SDFOutput,
   vec2,
 } from "../types";
-import { getChunk } from "../util";
+import { dot, getChunk, lineDistance } from "../util";
 
 export const vacuumMaterial: Material = {
   refractiveIndex: 1,
@@ -138,6 +139,51 @@ export class ConvexLensGlass extends Glass {
     const distance = Math.hypot(dx, dy);
     const normal: vec2 = [dx / distance, dy / distance];
     return { distance: distance - circleRadius, normal };
+  }
+}
+
+export class PolygonGlass extends Glass {
+  public vertices: vec2[];
+
+  public constructor({ vertices, ...glassProps }: PolygonGlassProps) {
+    super(glassProps);
+    this.vertices = vertices;
+  }
+
+  public chunkSpan(): ChunkSpan {
+    const xs = this.vertices.map((v) => v[0]);
+    const ys = this.vertices.map((v) => v[1]);
+    const min: vec2 = [Math.min(...xs), Math.min(...ys)];
+    const max: vec2 = [Math.max(...xs), Math.max(...ys)];
+    const chunkMin = getChunk(min);
+    const chunkMax = getChunk(max);
+    return {
+      x: [chunkMin[0], chunkMax[0]],
+      y: [chunkMin[1], chunkMax[1]],
+    };
+  }
+
+  protected sdfInternal(position: vec2): SDFOutput {
+    let minDistance = Infinity;
+    let minNormal: vec2 = [0, 0];
+    let inside = false;
+    for (let i = 0; i < this.vertices.length; i++) {
+      const p1 = this.vertices[i];
+      const p2 = this.vertices[(i + 1) % this.vertices.length];
+      const yCheck = p1[1] > position[1] !== p2[1] > position[1];
+      const xIntersect =
+        ((p2[0] - p1[0]) * (position[1] - p1[1])) / (p2[1] - p1[1]) + p1[0];
+      if (yCheck && position[0] < xIntersect) inside = !inside;
+      const distance = lineDistance(position, [p1, p2]);
+      if (distance < minDistance) {
+        minDistance = distance;
+        const edge: vec2 = [p2[0] - p1[0], p2[1] - p1[1]];
+        const edgeLength = Math.hypot(edge[0], edge[1]);
+        minNormal = [edge[1] / edgeLength, -edge[0] / edgeLength];
+      }
+    }
+    if (inside) minDistance *= -1;
+    return { distance: minDistance, normal: minNormal };
   }
 }
 
