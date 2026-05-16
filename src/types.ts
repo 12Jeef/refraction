@@ -49,6 +49,15 @@ export type CircleGlassProps = GlassProps & {
   center: vec2;
   radius: number;
 };
+export type ConvexGlassProps = GlassProps & {
+  center: vec2;
+  thickness: number;
+  length: number;
+  angle: number;
+};
+export type PolygonGlassProps = GlassProps & {
+  vertices: vec2[];
+};
 
 export type ChunkSpan = {
   x: vec2;

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { CircleGlass, GlassSet } from "./engine/glass";
+import { CircleGlass, ConvexLensGlass, GlassSet } from "./engine/glass";
 import { PointLight } from "./engine/lights";
 import { simulateRays } from "./engine/sim";
 import type { SimulationParams } from "./types";
@@ -17,11 +17,18 @@ function App() {
     canvas.height = 800;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    const glass = new CircleGlass({
-      center: [800, 400],
-      radius: 50,
-    });
-    const glassSet = new GlassSet([glass]);
+    const glassSet = new GlassSet([
+      new CircleGlass({
+        center: [400, 400],
+        radius: 50,
+      }),
+      new ConvexLensGlass({
+        center: [700, 400],
+        thickness: 25,
+        length: 100,
+        angle: 0,
+      }),
+    ]);
     const light = new PointLight({
       position: [x, y],
       wavelengths: { range: [400, 700], amplitude: 1 },

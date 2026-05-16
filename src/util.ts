@@ -15,7 +15,7 @@ export const lerp = (a: number, b: number, t: number): number =>
 export const dot = (a: vec2, b: vec2): number => a[0] * b[0] + a[1] * b[1];
 export const cross = (a: vec2, b: vec2): number => a[0] * b[1] - a[1] * b[0];
 
-export const CHUNK_SIZE = 100;
+export const CHUNK_SIZE = 500;
 
 export const getChunk = (position: vec2): vec2 => [
   Math.floor(position[0] / CHUNK_SIZE),
