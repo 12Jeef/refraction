@@ -15,7 +15,7 @@ export const vacuumMaterial: Material = {
   refractiveIndex: 1,
 };
 export const defaultMaterial: Material = {
-  refractiveIndex: (length) => 1.5046 + 0.0042 / (length * length),
+  refractiveIndex: (length) => 1.5046 + 4200 / (length * length),
 };
 export const mirrorMaterial: Material = {
   refractiveIndex: 1e9,

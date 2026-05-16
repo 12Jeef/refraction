@@ -195,17 +195,12 @@ export const simulateRays = (
     max = Math.max(max, newMax);
     lines.push(...newLines);
   }
+  max *= 2.5e-2;
   const data = ctx.createImageData(params.size[0], params.size[1]);
   for (let i = 0; i < params.size[0] * params.size[1]; i++) {
-    data.data[i * 4] = Math.min(255, (buffers.red[i] / (max * 2.5e-2)) * 255);
-    data.data[i * 4 + 1] = Math.min(
-      255,
-      (buffers.green[i] / (max * 2.5e-2)) * 255,
-    );
-    data.data[i * 4 + 2] = Math.min(
-      255,
-      (buffers.blue[i] / (max * 2.5e-2)) * 255,
-    );
+    data.data[i * 4] = Math.min(255, (buffers.red[i] / max) * 255);
+    data.data[i * 4 + 1] = Math.min(255, (buffers.green[i] / max) * 255);
+    data.data[i * 4 + 2] = Math.min(255, (buffers.blue[i] / max) * 255);
     data.data[i * 4 + 3] = 255;
   }
   ctx.putImageData(data, 0, 0);
