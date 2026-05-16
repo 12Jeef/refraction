@@ -105,7 +105,7 @@ export const transitionRay = (
     const n2 = refractiveIndex(newMaterial, ray.wavelengths);
     const eta = n1 / n2;
     const normalCoeff =
-      eta * incidentDotNormal -
+      eta * incidentDotNormal +
       Math.sqrt(1 - eta * eta * (1 - incidentDotNormal * incidentDotNormal));
     const refractedAngleVec: vec2 = [
       eta * ray.angle[0] - normalCoeff * normal[0],
@@ -124,6 +124,7 @@ export const transitionRay = (
         wavelengths: amplifyWavelengths(ray.wavelengths, R),
         angle: reflectedAngleVec,
         glass: ray.glass,
+        nTransitions: ray.nTransitions + 1,
       });
     if (T > 0.1)
       newRays.push({
@@ -135,6 +136,7 @@ export const transitionRay = (
         wavelengths: amplifyWavelengths(ray.wavelengths, T),
         angle: refractedAngleVec,
         glass: sdfOutput.glass,
+        nTransitions: ray.nTransitions + 1,
       });
   }
   return newRays;

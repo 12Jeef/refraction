@@ -20,6 +20,7 @@ export type Ray = {
   angle: vec2;
   wavelengths: Wavelengths;
   glass: Glass | null;
+  nTransitions: number;
 };
 
 export type LightProps = {

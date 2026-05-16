@@ -80,17 +80,20 @@ export const stepRays = (
   let max = 0;
   const lines: Line[] = [];
   for (const ray of rays) {
+    if (ray.nTransitions > 10) continue;
     const glass = ray.glass;
     if (glass !== null) {
-      // const sdf = glass.sdf(ray.position);
-      // if (sdf.distance < 0.1) {
-      //   const { max: newMax, line } = drawRay(ray, params.size, buffer);
-      //   max = Math.max(max, newMax);
-      //   lines.push(line);
-      //   continue;
-      // }
-      // moveRay(ray, sdf.distance);
-      moveRay(ray, 1000);
+      const sdf = glass.sdf(ray.position);
+      if (sdf.distance < 0.1) {
+        const { max: newMax, line } = drawRay(ray, params.size, buffer);
+        max = Math.max(max, newMax);
+        lines.push(line);
+        newRays.push(
+          ...transitionRay(ray, { ...sdf, glass: null }, params.dwavelength),
+        );
+        continue;
+      }
+      moveRay(ray, sdf.distance);
       if (!validRay(ray, params.size)) {
         const { max: newMax, line } = drawRay(ray, params.size, buffer);
         max = Math.max(max, newMax);
@@ -178,7 +181,7 @@ export const simulateRays = (
   }
   const data = ctx.createImageData(params.size[0], params.size[1]);
   for (let i = 0; i < buffer.length; i++) {
-    const value = Math.min(255, (buffer[i] / (max * 1e-1)) * 255);
+    const value = Math.min(255, (buffer[i] / (max * 2.5e-2)) * 255);
     data.data[i * 4] = value;
     data.data[i * 4 + 1] = value;
     data.data[i * 4 + 2] = value;
