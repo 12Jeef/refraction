@@ -39,6 +39,7 @@ export abstract class Glass {
     }
     return { ...sdf, glass: this };
   }
+  public abstract path(ctx: CanvasRenderingContext2D): void;
 }
 
 export class CircleGlass extends Glass {
@@ -74,6 +75,10 @@ export class CircleGlass extends Glass {
     const distance = Math.hypot(dx, dy);
     const normal: vec2 = [dx / distance, dy / distance];
     return { distance: distance - this.radius, normal };
+  }
+
+  public path(ctx: CanvasRenderingContext2D): void {
+    ctx.arc(...this.center, this.radius, 0, 2 * Math.PI);
   }
 }
 
@@ -121,13 +126,13 @@ export class ConvexLensGlass extends Glass {
       Math.cos(this.angle * (Math.PI / 180)),
       Math.sin(this.angle * (Math.PI / 180)),
     ];
-    const dot = to[0] * heading[0] + to[1] * heading[1];
     // (R-t/2)^2 + (l/2)^2 = R^2
     // R^2 - Rt + t^2/4 + l^2/4 = R^2
     // t^2/4 + l^2/4 = Rt
     // t^2 + l^2 = 4Rt
     const circleRadius =
       (this.thickness ** 2 + this.length ** 2) / (4 * this.thickness);
+    const dot = to[0] * heading[0] + to[1] * heading[1];
     const circleCenter: vec2 = [
       this.center[0] -
         Math.sign(dot) * heading[0] * (circleRadius - this.thickness / 2),
@@ -139,6 +144,32 @@ export class ConvexLensGlass extends Glass {
     const distance = Math.hypot(dx, dy);
     const normal: vec2 = [dx / distance, dy / distance];
     return { distance: distance - circleRadius, normal };
+  }
+
+  public path(ctx: CanvasRenderingContext2D): void {
+    const heading: vec2 = [
+      Math.cos(this.angle * (Math.PI / 180)),
+      Math.sin(this.angle * (Math.PI / 180)),
+    ];
+    const circleRadius =
+      (this.thickness ** 2 + this.length ** 2) / (4 * this.thickness);
+    const dx = heading[0] * (circleRadius - this.thickness / 2);
+    const dy = heading[1] * (circleRadius - this.thickness / 2);
+    const angle = Math.asin(this.length / 2 / circleRadius);
+    ctx.arc(
+      this.center[0] + dx,
+      this.center[1] + dy,
+      circleRadius,
+      Math.PI - angle,
+      Math.PI + angle,
+    );
+    ctx.arc(
+      this.center[0] - dx,
+      this.center[1] - dy,
+      circleRadius,
+      -angle,
+      +angle,
+    );
   }
 }
 
@@ -184,6 +215,13 @@ export class PolygonGlass extends Glass {
     }
     if (inside) minDistance *= -1;
     return { distance: minDistance, normal: minNormal };
+  }
+
+  public path(ctx: CanvasRenderingContext2D): void {
+    for (let i = 0; i < this.vertices.length; i++) {
+      if (i > 0) ctx.lineTo(...this.vertices[i]);
+      else ctx.moveTo(...this.vertices[i]);
+    }
   }
 }
 

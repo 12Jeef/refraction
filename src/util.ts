@@ -90,6 +90,7 @@ export const transitionRay = (
   const newMaterial = sdfOutput.glass?.material ?? vacuumMaterial;
   const { normal } = sdfOutput;
   const incidentDotNormal = ray.angle[0] * normal[0] + ray.angle[1] * normal[1];
+  if (incidentDotNormal > 0) return [];
   const rays =
     typeof pastMaterial.refractiveIndex === "number" &&
     typeof newMaterial.refractiveIndex === "number"

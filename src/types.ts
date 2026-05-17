@@ -76,6 +76,7 @@ export type SimulationParams = {
   dwavelength: number;
   size: vec2;
   ctx: CanvasRenderingContext2D;
+  type: "BUFFER" | "RENDER";
 };
 
 export type Buffers = {

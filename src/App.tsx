@@ -51,6 +51,7 @@ function App() {
       dwavelength: 50,
       size: [canvas.width, canvas.height],
       ctx,
+      type: "RENDER",
     };
     simulateRays(glassSet, rays, params);
   }, [canvasRef, x, y]);
