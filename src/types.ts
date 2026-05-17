@@ -3,12 +3,15 @@ import type { Glass } from "./engine/glass";
 export type vec2 = [number, number];
 export type vec3 = [number, number, number];
 export type line = [vec2, vec2];
-export type rect = [vec2, vec2];
 
 export type Wavelengths =
   | {
       length: number;
       amplitude: number;
+    }
+  | {
+      lengths: number[];
+      amplitudes: number[];
     }
   | {
       range: vec2;
@@ -21,7 +24,7 @@ export type Ray = {
   angle: vec2;
   wavelengths: Wavelengths;
   glass: Glass | null;
-  nTransitions: number;
+  distance: number;
 };
 
 export type LightProps = {
@@ -66,10 +69,6 @@ export type PolygonGlassProps = GlassProps & {
   vertices: vec2[];
 };
 
-export type ChunkSpan = {
-  x: vec2;
-  y: vec2;
-};
 export type SDFOutput = {
   distance: number;
   normal: vec2;
@@ -82,7 +81,7 @@ export type FullSDFOutput = SDFOutput & {
 export type SimulationParams = {
   density: number;
   dwavelength: number;
-  size: vec2;
+  maxDistance: number;
   ctx: CanvasRenderingContext2D;
 };
 

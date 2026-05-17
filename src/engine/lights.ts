@@ -44,7 +44,7 @@ export class PlaneLight extends Light {
         angle: [cos, sin],
         wavelengths: this.wavelengths,
         glass: null,
-        nTransitions: 0,
+        distance: 0,
       });
     }
     return rays;
@@ -63,7 +63,7 @@ export class PointLight extends Light {
         angle: [Math.cos(rad), Math.sin(rad)],
         wavelengths: this.wavelengths,
         glass: null,
-        nTransitions: 0,
+        distance: 0,
       });
     }
     return rays;
@@ -101,7 +101,7 @@ export class DirectionalLight extends Light {
         angle: [cos, sin],
         wavelengths: this.wavelengths,
         glass: null,
-        nTransitions: 0,
+        distance: 0,
       });
     }
     return rays;

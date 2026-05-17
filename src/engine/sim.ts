@@ -6,15 +6,8 @@ import type {
   vec2,
   vec3,
 } from "../types";
-import {
-  CHUNK_SIZE,
-  getChunk,
-  lerp,
-  rectOutlineMoveDistance,
-  transitionRay,
-  wavelengthsToRGB,
-} from "../util";
-import type { GlassSet } from "./glass";
+import { lerp, transitionRay, wavelengthsToRGB } from "../util";
+import type { Glass } from "./glass";
 import type { Light } from "./lights";
 
 export const createRays = (lights: Light[], density: number): Ray[] => {
@@ -38,26 +31,21 @@ export const drawRay = (ray: Ray) => {
 export const moveRay = (ray: Ray, distance: number) => {
   ray.position[0] += ray.angle[0] * distance;
   ray.position[1] += ray.angle[1] * distance;
-};
-
-export const validRay = (ray: Ray, size: vec2): boolean => {
-  return (
-    ray.position[0] >= 0 &&
-    ray.position[1] >= 0 &&
-    ray.position[0] <= size[0] &&
-    ray.position[1] <= size[1]
-  );
+  ray.distance += distance;
 };
 
 export const stepRays = (
-  glassSet: GlassSet,
+  glasses: Glass[],
   rays: Ray[],
   params: SimulationParams,
 ): { rays: Ray[]; lines: Line[] } => {
   const newRays: Ray[] = [];
   const lines: Line[] = [];
   for (const ray of rays) {
-    if (ray.nTransitions > 10) continue;
+    if (ray.distance > params.maxDistance) {
+      lines.push(drawRay(ray));
+      continue;
+    }
     const glass = ray.glass;
     if (glass !== null) {
       const sdf = glass.sdf(ray.position);
@@ -69,30 +57,6 @@ export const stepRays = (
         continue;
       }
       moveRay(ray, -sdf.distance);
-      if (!validRay(ray, params.size)) {
-        lines.push(drawRay(ray));
-        continue;
-      }
-      newRays.push(ray);
-      continue;
-    }
-    const [chunkX, chunkY] = getChunk(ray.position);
-    const glasses = glassSet.getGlassesAt(chunkX, chunkY);
-    if (glasses.length === 0) {
-      const chunkMinX = chunkX * CHUNK_SIZE;
-      const chunkMinY = chunkY * CHUNK_SIZE;
-      const chunkMaxX = chunkMinX + CHUNK_SIZE;
-      const chunkMaxY = chunkMinY + CHUNK_SIZE;
-      const distance =
-        rectOutlineMoveDistance(ray.position, ray.angle, [
-          [chunkMinX, chunkMinY],
-          [chunkMaxX, chunkMaxY],
-        ]) + 1e-3;
-      moveRay(ray, distance);
-      if (!validRay(ray, params.size)) {
-        lines.push(drawRay(ray));
-        continue;
-      }
       newRays.push(ray);
       continue;
     }
@@ -102,7 +66,7 @@ export const stepRays = (
         return sdf.distance < min.distance ? sdf : min;
       },
       {
-        distance: Infinity,
+        distance: params.maxDistance,
         normal: [0, 0],
         glass: null,
         internal: false,
@@ -114,29 +78,20 @@ export const stepRays = (
       continue;
     }
     moveRay(ray, sdf.distance);
-    if (!validRay(ray, params.size)) {
-      lines.push(drawRay(ray));
-      continue;
-    }
     newRays.push(ray);
   }
   return { rays: newRays, lines };
 };
 
 export const simulateRays = (
-  glassSet: GlassSet,
+  glasses: Glass[],
   lights: Light[],
   params: SimulationParams,
 ) => {
-  const { density, size, ctx } = params;
+  const { density, ctx } = params;
   let rays: Ray[] = [];
   for (const light of lights) rays.push(...light.emit(density));
   for (const ray of rays) {
-    const glasses = glassSet.getGlassesAt(...getChunk(ray.position));
-    if (glasses.length === 0) {
-      ray.glass = null;
-      continue;
-    }
     const sdf = glasses.reduce(
       (min, glass) => {
         const sdf = glass.sdf(ray.position);
@@ -153,13 +108,11 @@ export const simulateRays = (
   }
   const lines: Line[] = [];
   while (rays.length > 0) {
-    const { rays: newRays, lines: newLines } = stepRays(glassSet, rays, params);
+    const { rays: newRays, lines: newLines } = stepRays(glasses, rays, params);
     rays = newRays;
     lines.push(...newLines);
   }
-  ctx.globalCompositeOperation = "source-over";
-  ctx.fillStyle = "#000011";
-  ctx.fillRect(0, 0, size[0], size[1]);
+  ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   ctx.globalCompositeOperation = "lighter";
   ctx.lineWidth = 1;
   for (let i = 0; i < 3; i++) {

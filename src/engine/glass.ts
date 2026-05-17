@@ -1,5 +1,4 @@
 import type {
-  ChunkSpan,
   CircleGlassProps,
   LensGlassProps,
   FullSDFOutput,
@@ -10,7 +9,7 @@ import type {
   vec2,
   RectangleGlassProps,
 } from "../types";
-import { dot, getChunk, lineDistance, projComp } from "../util";
+import { dot, lineDistance, projComp } from "../util";
 
 export const vacuumMaterial: Material = {
   refractiveIndex: 1,
@@ -29,7 +28,6 @@ export abstract class Glass {
     this.material = material ?? defaultMaterial;
   }
 
-  public abstract chunkSpan(): ChunkSpan;
   protected abstract sdfInternal(position: vec2): SDFOutput;
   public sdf(position: vec2): FullSDFOutput {
     const sdf = this.sdfInternal(position);
@@ -47,23 +45,6 @@ export class CircleGlass extends Glass {
     super(glassProps);
     this.center = center;
     this.radius = radius;
-  }
-
-  public chunkSpan(): ChunkSpan {
-    const min: vec2 = [
-      this.center[0] - this.radius,
-      this.center[1] - this.radius,
-    ];
-    const max: vec2 = [
-      this.center[0] + this.radius,
-      this.center[1] + this.radius,
-    ];
-    const chunkMin = getChunk(min);
-    const chunkMax = getChunk(max);
-    return {
-      x: [chunkMin[0], chunkMax[0]],
-      y: [chunkMin[1], chunkMax[1]],
-    };
   }
 
   protected sdfInternal(position: vec2): SDFOutput {
@@ -97,18 +78,6 @@ export abstract class LensGlass extends Glass {
     this.thickness = thickness;
     this.length = length;
     this.angle = angle;
-  }
-
-  public chunkSpan(): ChunkSpan {
-    const dimMax = (this.thickness + this.length) / 2;
-    const min: vec2 = [this.center[0] - dimMax, this.center[1] - dimMax];
-    const max: vec2 = [this.center[0] + dimMax, this.center[1] + dimMax];
-    const chunkMin = getChunk(min);
-    const chunkMax = getChunk(max);
-    return {
-      x: [chunkMin[0], chunkMax[0]],
-      y: [chunkMin[1], chunkMax[1]],
-    };
   }
 
   public get heading(): vec2 {
@@ -272,18 +241,6 @@ export class RectangleGlass extends Glass {
     this.angle = angle;
   }
 
-  public chunkSpan(): ChunkSpan {
-    const radius = Math.hypot(this.width, this.height);
-    const min: vec2 = [this.center[0] - radius, this.center[1] - radius];
-    const max: vec2 = [this.center[0] + radius, this.center[1] + radius];
-    const chunkMin = getChunk(min);
-    const chunkMax = getChunk(max);
-    return {
-      x: [chunkMin[0], chunkMax[0]],
-      y: [chunkMin[1], chunkMax[1]],
-    };
-  }
-
   protected sdfInternal(position: vec2): SDFOutput {
     const { paraB: paraVec, perpB: perpVec } = projComp(
       [position[0] - this.center[0], position[1] - this.center[1]],
@@ -344,19 +301,6 @@ export class PolygonGlass extends Glass {
     this.vertices = vertices;
   }
 
-  public chunkSpan(): ChunkSpan {
-    const xs = this.vertices.map((v) => v[0]);
-    const ys = this.vertices.map((v) => v[1]);
-    const min: vec2 = [Math.min(...xs), Math.min(...ys)];
-    const max: vec2 = [Math.max(...xs), Math.max(...ys)];
-    const chunkMin = getChunk(min);
-    const chunkMax = getChunk(max);
-    return {
-      x: [chunkMin[0], chunkMax[0]],
-      y: [chunkMin[1], chunkMax[1]],
-    };
-  }
-
   protected sdfInternal(position: vec2): SDFOutput {
     let minDistance = Infinity;
     let minNormal: vec2 = [0, 0];
@@ -385,42 +329,5 @@ export class PolygonGlass extends Glass {
       if (i > 0) ctx.lineTo(...this.vertices[i]);
       else ctx.moveTo(...this.vertices[i]);
     }
-  }
-}
-
-export class GlassSet {
-  public glasses: Glass[];
-  public lookup: Map<number, Map<number, Glass[]>>;
-
-  public constructor(glasses: Glass[]) {
-    this.glasses = glasses;
-    this.lookup = new Map();
-    this.computeLookup();
-  }
-
-  public computeLookup() {
-    this.lookup.clear();
-    for (const glass of this.glasses) {
-      const { x, y } = glass.chunkSpan();
-      for (let i = x[0]; i <= x[1]; i++) {
-        if (!this.lookup.has(i)) this.lookup.set(i, new Map());
-        const xMap = this.lookup.get(i)!;
-        for (let j = y[0]; j <= y[1]; j++) {
-          if (!xMap.has(j)) xMap.set(j, []);
-          xMap.get(j)!.push(glass);
-        }
-      }
-    }
-  }
-
-  public getGlassesAt(chunkX: number, chunkY: number): Glass[] {
-    const glasses: Glass[] = [];
-    for (let dx = -1; dx <= 1; dx++) {
-      for (let dy = -1; dy <= 1; dy++) {
-        const chunkGlasses = this.lookup.get(chunkX + dx)?.get(chunkY + dy);
-        if (chunkGlasses) glasses.push(...chunkGlasses);
-      }
-    }
-    return glasses;
   }
 }

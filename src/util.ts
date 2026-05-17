@@ -4,7 +4,6 @@ import type {
   line,
   Material,
   Ray,
-  rect,
   vec2,
   vec3,
   Wavelengths,
@@ -25,18 +24,16 @@ export const projComp = (a: vec2, b: vec2): { paraB: vec2; perpB: vec2 } => {
   return { paraB, perpB };
 };
 
-export const CHUNK_SIZE = 1000;
-
-export const getChunk = (position: vec2): vec2 => [
-  Math.floor(position[0] / CHUNK_SIZE),
-  Math.floor(position[1] / CHUNK_SIZE),
-];
-
 export const subdivideWavelengths = (
   wavelengths: Wavelengths,
   dwavelength: number,
 ): Wavelengths[] => {
   if ("length" in wavelengths) return [wavelengths];
+  if ("lengths" in wavelengths)
+    return wavelengths.lengths.map((length, i) => ({
+      length,
+      amplitude: wavelengths.amplitudes[i],
+    }));
   const [start, stop] = wavelengths.range;
   const result: Wavelengths[] = [];
   for (let i = start; i < stop; i += dwavelength) {
@@ -57,6 +54,13 @@ export const subdivideRay = (ray: Ray, dwavelength: number): Ray[] => {
 
 export const meanWavelength = (wavelengths: Wavelengths): number => {
   if ("length" in wavelengths) return wavelengths.length;
+  if ("lengths" in wavelengths) {
+    const amplitudeSum = wavelengths.amplitudes.reduce((a, b) => a + b, 0);
+    return wavelengths.lengths.reduce(
+      (a, b, i) => a + (b * wavelengths.amplitudes[i]) / amplitudeSum,
+      0,
+    );
+  }
   const [start, stop] = wavelengths.range;
   return (start + stop) / 2;
 };
@@ -78,6 +82,11 @@ export const amplifyWavelengths = (
       length: wavelengths.length,
       amplitude: wavelengths.amplitude * factor,
     };
+  if ("lengths" in wavelengths)
+    return {
+      lengths: wavelengths.lengths,
+      amplitudes: wavelengths.amplitudes.map((a) => a * factor),
+    };
   const amplitude = wavelengths.amplitude;
   if (typeof amplitude === "number")
     return {
@@ -89,6 +98,55 @@ export const amplifyWavelengths = (
     amplitude: (wavelength) => amplitude(wavelength) * factor,
   };
 };
+
+export const mergeWavelengths = (
+  a: Wavelengths,
+  b: Wavelengths,
+): Wavelengths => {
+  if ("length" in a) {
+    if ("length" in b)
+      return {
+        lengths: [a.length, b.length],
+        amplitudes: [a.amplitude, b.amplitude],
+      };
+    if ("lengths" in b)
+      return {
+        lengths: [a.length, ...b.lengths],
+        amplitudes: [a.amplitude, ...b.amplitudes],
+      };
+    // cannot integrate with function, assume dwavelength=0 -> NO EFFECT
+    return b;
+  }
+  if ("lengths" in a) {
+    if ("length" in b) return mergeWavelengths(b, a);
+    if ("lengths" in b) return mergeWavelengths(b, a);
+    // cannot integrate with function, assume dwavelength=0 -> NO EFFECT
+    return b;
+  }
+  if ("length" in b) return mergeWavelengths(b, a);
+  if ("lengths" in b) return mergeWavelengths(b, a);
+  // integrating functions
+  return {
+    range: [Math.min(...a.range, ...b.range), Math.max(...a.range, ...b.range)],
+    amplitude: (l) => {
+      const aComponent =
+        l < a.range[0] || l >= a.range[1]
+          ? 0
+          : typeof a.amplitude === "number"
+            ? a.amplitude
+            : a.amplitude(l);
+      const bComponent =
+        l < b.range[0] || l >= b.range[1]
+          ? 0
+          : typeof b.amplitude === "number"
+            ? b.amplitude
+            : b.amplitude(l);
+      return aComponent + bComponent;
+    },
+  };
+};
+
+const MERGE_RAYS = true;
 
 export const transitionRay = (
   ray: Ray,
@@ -104,19 +162,24 @@ export const transitionRay = (
   }
   const incidentDotNormal = dot(ray.angle, normal);
   if (incidentDotNormal > 0) return [];
+  const multipleWavelengths = !("length" in ray.wavelengths);
+  const multipleRefractiveIndices =
+    typeof pastMaterial.refractiveIndex !== "number" ||
+    typeof newMaterial.refractiveIndex !== "number";
   const rays =
-    typeof pastMaterial.refractiveIndex === "number" &&
-    typeof newMaterial.refractiveIndex === "number"
-      ? [ray]
-      : subdivideRay(ray, dwavelength);
+    multipleWavelengths && multipleRefractiveIndices
+      ? subdivideRay(ray, dwavelength)
+      : [ray];
   const newRays: Ray[] = [];
+  const reflectedRays: { [key: number]: Ray | undefined } = {};
+  const refractedRays: { [key: number]: Ray | undefined } = {};
   for (const ray of rays) {
+    const n1 = refractiveIndex(pastMaterial, ray.wavelengths);
+    const n2 = refractiveIndex(newMaterial, ray.wavelengths);
     const reflectedAngleVec: vec2 = [
       ray.angle[0] - 2 * incidentDotNormal * normal[0],
       ray.angle[1] - 2 * incidentDotNormal * normal[1],
     ];
-    const n1 = refractiveIndex(pastMaterial, ray.wavelengths);
-    const n2 = refractiveIndex(newMaterial, ray.wavelengths);
     const eta = n1 / n2;
     const normalCoeff =
       eta * incidentDotNormal +
@@ -128,50 +191,62 @@ export const transitionRay = (
     const R0 = ((n1 - n2) / (n1 + n2)) ** 2;
     const R = R0 + (1 - R0) * (1 + incidentDotNormal) ** 5;
     const T = 1 - R;
-    if (R > 0.1)
-      newRays.push({
-        origin: ray.position,
-        position: [
-          ray.position[0] + 1 * reflectedAngleVec[0],
-          ray.position[1] + 1 * reflectedAngleVec[1],
-        ],
-        wavelengths: amplifyWavelengths(ray.wavelengths, R),
-        angle: reflectedAngleVec,
-        glass: ray.glass,
-        nTransitions: ray.nTransitions + 1,
-      });
-    if (T > 0.1)
-      newRays.push({
-        origin: ray.position,
-        position: [
-          ray.position[0] + 1 * refractedAngleVec[0],
-          ray.position[1] + 1 * refractedAngleVec[1],
-        ],
-        wavelengths: amplifyWavelengths(ray.wavelengths, T),
-        angle: refractedAngleVec,
-        glass: sdfOutput.glass,
-        nTransitions: ray.nTransitions + 1,
-      });
+    if (R > 0.1) {
+      const wavelengths = amplifyWavelengths(ray.wavelengths, R);
+      const h = Math.round(
+        Math.atan2(reflectedAngleVec[1], reflectedAngleVec[0]) *
+          (180 / Math.PI) *
+          1e1,
+      );
+      if (MERGE_RAYS && reflectedRays[h]) {
+        reflectedRays[h].wavelengths = mergeWavelengths(
+          reflectedRays[h].wavelengths,
+          wavelengths,
+        );
+      } else {
+        reflectedRays[h] = {
+          origin: ray.position,
+          position: [
+            ray.position[0] + 1 * reflectedAngleVec[0],
+            ray.position[1] + 1 * reflectedAngleVec[1],
+          ],
+          wavelengths,
+          angle: reflectedAngleVec,
+          glass: ray.glass,
+          distance: ray.distance + 1,
+        };
+        newRays.push(reflectedRays[h]);
+      }
+    }
+    if (T > 0.1) {
+      const wavelengths = amplifyWavelengths(ray.wavelengths, T);
+      const h = Math.round(
+        Math.atan2(refractedAngleVec[1], refractedAngleVec[0]) *
+          (180 / Math.PI) *
+          1e1,
+      );
+      if (MERGE_RAYS && refractedRays[h]) {
+        refractedRays[h].wavelengths = mergeWavelengths(
+          refractedRays[h].wavelengths,
+          wavelengths,
+        );
+      } else {
+        refractedRays[h] = {
+          origin: ray.position,
+          position: [
+            ray.position[0] + 1 * refractedAngleVec[0],
+            ray.position[1] + 1 * refractedAngleVec[1],
+          ],
+          wavelengths,
+          angle: refractedAngleVec,
+          glass: sdfOutput.glass,
+          distance: ray.distance + 1,
+        };
+        newRays.push(refractedRays[h]);
+      }
+    }
   }
   return newRays;
-};
-
-export const rectOutlineMoveDistance = (
-  point: vec2,
-  angle: vec2,
-  rect: rect,
-): number => {
-  const [min, max] = rect;
-  const hypot = Math.hypot(max[0] - min[0], max[1] - min[1]);
-  const point2: vec2 = [
-    point[0] + angle[0] * hypot,
-    point[1] + angle[1] * hypot,
-  ];
-  const point2Clamped: vec2 = [
-    Math.max(min[0], Math.min(max[0], point2[0])),
-    Math.max(min[1], Math.min(max[1], point2[1])),
-  ];
-  return Math.hypot(point2Clamped[0] - point[0], point2Clamped[1] - point[1]);
 };
 
 export const lineDistance = (point: vec2, line: line): number => {
@@ -245,6 +320,19 @@ export const wavelengthsToRGB = (
 ): vec3 => {
   if ("length" in wavelengths)
     return wavelengthToRGB(wavelengths.length, wavelengths.amplitude);
+  if ("lengths" in wavelengths) {
+    const rgb: vec3 = [0, 0, 0];
+    for (let i = 0; i < wavelengths.lengths.length; i++) {
+      const rgbi = wavelengthToRGB(
+        wavelengths.lengths[i],
+        wavelengths.amplitudes[i],
+      );
+      rgb[0] += rgbi[0];
+      rgb[1] += rgbi[1];
+      rgb[2] += rgbi[2];
+    }
+    return rgb;
+  }
   const rgb: vec3 = [0, 0, 0];
   for (
     let l = wavelengths.range[0];
