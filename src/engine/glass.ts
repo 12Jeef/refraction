@@ -8,6 +8,7 @@ import type {
   PolygonGlassProps,
   SDFOutput,
   vec2,
+  RectangleGlassProps,
 } from "../types";
 import { dot, getChunk, lineDistance, projComp } from "../util";
 
@@ -29,8 +30,8 @@ export abstract class Glass {
   }
 
   public abstract chunkSpan(): ChunkSpan;
-  protected abstract sdfInternal(position: [number, number]): SDFOutput;
-  public sdf(position: [number, number]): FullSDFOutput {
+  protected abstract sdfInternal(position: vec2): SDFOutput;
+  public sdf(position: vec2): FullSDFOutput {
     const sdf = this.sdfInternal(position);
     const internal = sdf.distance < 0;
     return { ...sdf, glass: this, internal };
@@ -39,7 +40,7 @@ export abstract class Glass {
 }
 
 export class CircleGlass extends Glass {
-  public center: [number, number];
+  public center: vec2;
   public radius: number;
 
   public constructor({ center, radius, ...glassProps }: CircleGlassProps) {
@@ -79,7 +80,7 @@ export class CircleGlass extends Glass {
 }
 
 export abstract class LensGlass extends Glass {
-  public center: [number, number];
+  public center: vec2;
   public thickness: number;
   public length: number;
   public angle: number;
@@ -177,7 +178,7 @@ export class ConvexLensGlass extends LensGlass {
 }
 
 export class ConcaveLensGlass extends LensGlass {
-  protected sdfInternal(position: [number, number]): SDFOutput {
+  protected sdfInternal(position: vec2): SDFOutput {
     const heading: vec2 = this.heading;
     const circleRadius = this.circleRadius;
 
@@ -249,6 +250,65 @@ export class ConcaveLensGlass extends LensGlass {
       +angle,
     );
   }
+}
+
+export class RectangleGlass extends Glass {
+  public center: vec2;
+  public width: number;
+  public height: number;
+  public angle: number;
+
+  public constructor({
+    center,
+    width,
+    height,
+    angle,
+    ...glassProps
+  }: RectangleGlassProps) {
+    super(glassProps);
+    this.center = center;
+    this.width = width;
+    this.height = height;
+    this.angle = angle;
+  }
+
+  public chunkSpan(): ChunkSpan {
+    const radius = Math.hypot(this.width, this.height);
+    const min: vec2 = [this.center[0] - radius, this.center[1] - radius];
+    const max: vec2 = [this.center[0] + radius, this.center[1] + radius];
+    const chunkMin = getChunk(min);
+    const chunkMax = getChunk(max);
+    return {
+      x: [chunkMin[0], chunkMax[0]],
+      y: [chunkMin[1], chunkMax[1]],
+    };
+  }
+
+  protected sdfInternal(position: vec2): SDFOutput {
+    const { paraB: paraVec, perpB: perpVec } = projComp(
+      [position[0] - this.center[0], position[1] - this.center[1]],
+      [Math.cos(this.angle), Math.sin(this.angle)],
+    );
+    const paraDist = Math.hypot(...paraVec);
+    const paraSDF: SDFOutput = {
+      distance: paraDist - this.width / 2,
+      normal: [paraVec[0] / paraDist, paraVec[1] / paraDist],
+    };
+    const perpDist = Math.hypot(...perpVec);
+    const perpSDF: SDFOutput = {
+      distance: perpDist - this.height / 2,
+      normal: [perpVec[0] / perpDist, perpVec[1] / perpDist],
+    };
+    if (paraSDF.distance > 0) {
+      if (perpSDF.distance > 0)
+        return paraSDF.distance > perpSDF.distance ? paraSDF : perpSDF;
+      return paraSDF;
+    }
+    if (perpSDF.distance > 0) return perpSDF;
+    return paraSDF.distance > perpSDF.distance ? paraSDF : perpSDF;
+  }
+
+  public path(ctx: CanvasRenderingContext2D): void {}
 }
 
 export class PolygonGlass extends Glass {

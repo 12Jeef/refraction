@@ -25,7 +25,7 @@ export const projComp = (a: vec2, b: vec2): { paraB: vec2; perpB: vec2 } => {
   return { paraB, perpB };
 };
 
-export const CHUNK_SIZE = 500;
+export const CHUNK_SIZE = 1000;
 
 export const getChunk = (position: vec2): vec2 => [
   Math.floor(position[0] / CHUNK_SIZE),

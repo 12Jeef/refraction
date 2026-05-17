@@ -56,6 +56,12 @@ export type LensGlassProps = GlassProps & {
   length: number;
   angle: number;
 };
+export type RectangleGlassProps = GlassProps & {
+  center: vec2;
+  width: number;
+  height: number;
+  angle: number;
+};
 export type PolygonGlassProps = GlassProps & {
   vertices: vec2[];
 };

@@ -5,6 +5,7 @@ import {
   ConvexLensGlass,
   GlassSet,
   PolygonGlass,
+  RectangleGlass,
 } from "./engine/glass";
 import { PointLight } from "./engine/lights";
 import { simulateRays } from "./engine/sim";
@@ -46,6 +47,12 @@ function App() {
           [850, 400 + (100 * (Math.sqrt(3) / 2)) / 2],
           [750, 400 + (100 * (Math.sqrt(3) / 2)) / 2],
         ],
+      }),
+      new RectangleGlass({
+        center: [1000, 400],
+        width: 50,
+        height: 100,
+        angle: Math.PI / 6,
       }),
     ]);
     const light = new PointLight({
