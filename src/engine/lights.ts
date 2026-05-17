@@ -34,7 +34,7 @@ export class PlaneLight extends Light {
 
   public emit(density: number): Ray[] {
     const rays: Ray[] = [];
-    const step = Math.max(0.1, lerp(this.length / 10, 0.1, density));
+    const step = Math.max(0.1, lerp(1, 0.1, density));
     const cos = Math.cos(this.angle * (Math.PI / 180));
     const sin = Math.sin(this.angle * (Math.PI / 180));
     for (let i = -this.length / 2; i <= this.length / 2; i += step) {
@@ -53,7 +53,7 @@ export class PlaneLight extends Light {
 
 export class PointLight extends Light {
   public emit(density: number): Ray[] {
-    const step = Math.max(0.1, lerp(360 / 10, 0.1, density));
+    const step = Math.max(0.1, lerp(1, 0.1, density));
     const rays: Ray[] = [];
     for (let angle = 0; angle < 360; angle += step) {
       const rad = (angle * Math.PI) / 180;
@@ -86,7 +86,7 @@ export class DirectionalLight extends Light {
 
   public emit(density: number): Ray[] {
     const rays: Ray[] = [];
-    const step = Math.max(0.1, lerp(this.angleSpread / 10, 0.1, density));
+    const step = Math.max(0.1, lerp(1, 0.1, density));
     for (
       let angle = -this.angleSpread / 2;
       angle <= this.angleSpread / 2;

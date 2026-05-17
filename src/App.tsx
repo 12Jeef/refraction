@@ -60,14 +60,14 @@ function App() {
       wavelengths: { range: [400, 700], amplitude: 1 },
       amplitude: 1,
     });
-    const rays = light.emit(1);
     const params: SimulationParams = {
+      density: 0.5,
       dwavelength: 50,
       size: [canvas.width, canvas.height],
       ctx,
       type: "RENDER",
     };
-    simulateRays(glassSet, rays, params);
+    simulateRays(glassSet, [light], params);
   }, [canvasRef, x, y]);
 
   return (

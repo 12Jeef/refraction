@@ -308,7 +308,32 @@ export class RectangleGlass extends Glass {
     return paraSDF.distance > perpSDF.distance ? paraSDF : perpSDF;
   }
 
-  public path(ctx: CanvasRenderingContext2D): void {}
+  public path(ctx: CanvasRenderingContext2D): void {
+    const xVec: vec2 = [
+      Math.cos(this.angle) * (this.width / 2),
+      Math.sin(this.angle) * (this.width / 2),
+    ];
+    const yVec: vec2 = [
+      -Math.sin(this.angle) * (this.height / 2),
+      Math.cos(this.angle) * (this.height / 2),
+    ];
+    ctx.moveTo(
+      this.center[0] + xVec[0] + yVec[0],
+      this.center[1] + xVec[1] + yVec[1],
+    );
+    ctx.lineTo(
+      this.center[0] + xVec[0] - yVec[0],
+      this.center[1] + xVec[1] - yVec[1],
+    );
+    ctx.lineTo(
+      this.center[0] - xVec[0] - yVec[0],
+      this.center[1] - xVec[1] - yVec[1],
+    );
+    ctx.lineTo(
+      this.center[0] - xVec[0] + yVec[0],
+      this.center[1] - xVec[1] + yVec[1],
+    );
+  }
 }
 
 export class PolygonGlass extends Glass {

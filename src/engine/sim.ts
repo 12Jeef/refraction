@@ -10,6 +10,7 @@ import type {
 import {
   CHUNK_SIZE,
   getChunk,
+  lerp,
   rectOutlineMoveDistance,
   transitionRay,
   wavelengthsToRGB,
@@ -208,13 +209,13 @@ const allocBuffer = (size: vec2, type: string): Float32Array => {
 
 export const simulateRays = (
   glassSet: GlassSet,
-  rays: Ray[],
+  lights: Light[],
   params: SimulationParams,
 ) => {
-  const { ctx } = params;
-  const bufferRed = allocBuffer(params.size, "red");
-  const bufferGreen = allocBuffer(params.size, "green");
-  const bufferBlue = allocBuffer(params.size, "blue");
+  const { density, size, ctx, type } = params;
+  const bufferRed = allocBuffer(size, "red");
+  const bufferGreen = allocBuffer(size, "green");
+  const bufferBlue = allocBuffer(size, "blue");
   bufferRed.fill(0);
   bufferGreen.fill(0);
   bufferBlue.fill(0);
@@ -223,6 +224,8 @@ export const simulateRays = (
     green: bufferGreen,
     blue: bufferBlue,
   };
+  let rays: Ray[] = [];
+  for (const light of lights) rays.push(...light.emit(density));
   for (const ray of rays) {
     const glasses = glassSet.getGlassesAt(...getChunk(ray.position));
     if (glasses.length === 0) {
@@ -256,9 +259,9 @@ export const simulateRays = (
     lines.push(...newLines);
   }
   max *= 2.5e-2;
-  if (params.type === "BUFFER") {
-    const data = ctx.createImageData(params.size[0], params.size[1]);
-    for (let i = 0; i < params.size[0] * params.size[1]; i++) {
+  if (type === "BUFFER") {
+    const data = ctx.createImageData(size[0], size[1]);
+    for (let i = 0; i < size[0] * size[1]; i++) {
       data.data[i * 4] = Math.min(255, (buffers.red[i] / max) * 255);
       data.data[i * 4 + 1] = Math.min(255, (buffers.green[i] / max) * 255);
       data.data[i * 4 + 2] = Math.min(255, (buffers.blue[i] / max) * 255);
@@ -266,15 +269,15 @@ export const simulateRays = (
     }
     ctx.putImageData(data, 0, 0);
   }
-  if (params.type === "RENDER") {
+  if (type === "RENDER") {
     ctx.globalCompositeOperation = "source-over";
     ctx.fillStyle = "#000011";
-    ctx.fillRect(0, 0, params.size[0], params.size[1]);
+    ctx.fillRect(0, 0, size[0], size[1]);
     ctx.globalCompositeOperation = "lighter";
     ctx.lineWidth = 1;
     for (let i = 0; i < 3; i++) {
       for (const line of lines) {
-        ctx.strokeStyle = `rgba(${255 * +(i === 0)}, ${255 * +(i === 1)}, ${255 * +(i === 2)}, ${line.rgb[i] * 1e-2})`;
+        ctx.strokeStyle = `rgba(${255 * +(i === 0)}, ${255 * +(i === 1)}, ${255 * +(i === 2)}, ${line.rgb[i] * lerp(1e-2, 5e-2, (density - 1) / (0.5 - 1))})`;
         ctx.beginPath();
         ctx.moveTo(...line.start);
         ctx.lineTo(...line.end);

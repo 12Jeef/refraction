@@ -80,6 +80,7 @@ export type FullSDFOutput = SDFOutput & {
 };
 
 export type SimulationParams = {
+  density: number;
   dwavelength: number;
   size: vec2;
   ctx: CanvasRenderingContext2D;
