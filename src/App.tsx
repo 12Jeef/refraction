@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   CircleGlass,
+  ConcaveLensGlass,
   ConvexLensGlass,
   GlassSet,
   PolygonGlass,
@@ -28,16 +29,22 @@ function App() {
         radius: 50,
       }),
       new ConvexLensGlass({
-        center: [500, 400],
+        center: [400, 400],
+        thickness: 25,
+        length: 100,
+        angle: 0,
+      }),
+      new ConcaveLensGlass({
+        center: [600, 400],
         thickness: 25,
         length: 100,
         angle: 0,
       }),
       new PolygonGlass({
         vertices: [
-          [850, 400 - (100 * (Math.sqrt(3) / 2)) / 2],
-          [900, 400 + (100 * (Math.sqrt(3) / 2)) / 2],
-          [800, 400 + (100 * (Math.sqrt(3) / 2)) / 2],
+          [800, 400 - (100 * (Math.sqrt(3) / 2)) / 2],
+          [850, 400 + (100 * (Math.sqrt(3) / 2)) / 2],
+          [750, 400 + (100 * (Math.sqrt(3) / 2)) / 2],
         ],
       }),
     ]);

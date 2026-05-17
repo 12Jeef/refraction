@@ -50,7 +50,7 @@ export type CircleGlassProps = GlassProps & {
   center: vec2;
   radius: number;
 };
-export type ConvexGlassProps = GlassProps & {
+export type LensGlassProps = GlassProps & {
   center: vec2;
   thickness: number;
   length: number;

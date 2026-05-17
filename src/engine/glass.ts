@@ -1,7 +1,7 @@
 import type {
   ChunkSpan,
   CircleGlassProps,
-  ConvexGlassProps,
+  LensGlassProps,
   FullSDFOutput,
   GlassProps,
   Material,
@@ -9,7 +9,7 @@ import type {
   SDFOutput,
   vec2,
 } from "../types";
-import { getChunk, lineDistance } from "../util";
+import { dot, getChunk, lineDistance, projComp } from "../util";
 
 export const vacuumMaterial: Material = {
   refractiveIndex: 1,
@@ -78,7 +78,7 @@ export class CircleGlass extends Glass {
   }
 }
 
-export class ConvexLensGlass extends Glass {
+export abstract class LensGlass extends Glass {
   public center: [number, number];
   public thickness: number;
   public length: number;
@@ -90,7 +90,7 @@ export class ConvexLensGlass extends Glass {
     length,
     angle,
     ...glassProps
-  }: ConvexGlassProps) {
+  }: LensGlassProps) {
     super(glassProps);
     this.center = center;
     this.thickness = thickness;
@@ -99,7 +99,7 @@ export class ConvexLensGlass extends Glass {
   }
 
   public chunkSpan(): ChunkSpan {
-    const dimMax = Math.max(this.thickness, this.length) / 2;
+    const dimMax = (this.thickness + this.length) / 2;
     const min: vec2 = [this.center[0] - dimMax, this.center[1] - dimMax];
     const max: vec2 = [this.center[0] + dimMax, this.center[1] + dimMax];
     const chunkMin = getChunk(min);
@@ -110,30 +110,40 @@ export class ConvexLensGlass extends Glass {
     };
   }
 
-  protected sdfInternal(position: vec2): SDFOutput {
-    const to: vec2 = [
-      position[0] - this.center[0],
-      position[1] - this.center[1],
-    ];
-    const toDistance = Math.hypot(to[0], to[1]);
-    to[0] /= toDistance;
-    to[1] /= toDistance;
-    const heading: vec2 = [
+  public get heading(): vec2 {
+    return [
       Math.cos(this.angle * (Math.PI / 180)),
       Math.sin(this.angle * (Math.PI / 180)),
     ];
+  }
+
+  public get circleRadius(): number {
     // (R-t/2)^2 + (l/2)^2 = R^2
     // R^2 - Rt + t^2/4 + l^2/4 = R^2
     // t^2/4 + l^2/4 = Rt
     // t^2 + l^2 = 4Rt
-    const circleRadius =
-      (this.thickness ** 2 + this.length ** 2) / (4 * this.thickness);
-    const dot = to[0] * heading[0] + to[1] * heading[1];
+    return (this.thickness ** 2 + this.length ** 2) / (4 * this.thickness);
+  }
+}
+
+export class ConvexLensGlass extends LensGlass {
+  protected sdfInternal(position: vec2): SDFOutput {
+    const heading: vec2 = this.heading;
+    const circleRadius = this.circleRadius;
+
+    const to: vec2 = [
+      position[0] - this.center[0],
+      position[1] - this.center[1],
+    ];
+    const toDistance = Math.hypot(...to);
+    to[0] /= toDistance;
+    to[1] /= toDistance;
+    const d = dot(to, heading);
     const circleCenter: vec2 = [
       this.center[0] -
-        Math.sign(dot) * heading[0] * (circleRadius - this.thickness / 2),
+        Math.sign(d) * heading[0] * (circleRadius - this.thickness / 2),
       this.center[1] -
-        Math.sign(dot) * heading[1] * (circleRadius - this.thickness / 2),
+        Math.sign(d) * heading[1] * (circleRadius - this.thickness / 2),
     ];
     const dx = position[0] - circleCenter[0];
     const dy = position[1] - circleCenter[1];
@@ -143,14 +153,86 @@ export class ConvexLensGlass extends Glass {
   }
 
   public path(ctx: CanvasRenderingContext2D): void {
-    const heading: vec2 = [
-      Math.cos(this.angle * (Math.PI / 180)),
-      Math.sin(this.angle * (Math.PI / 180)),
-    ];
-    const circleRadius =
-      (this.thickness ** 2 + this.length ** 2) / (4 * this.thickness);
+    const heading: vec2 = this.heading;
+    const circleRadius = this.circleRadius;
+
     const dx = heading[0] * (circleRadius - this.thickness / 2);
     const dy = heading[1] * (circleRadius - this.thickness / 2);
+    const angle = Math.asin(this.length / 2 / circleRadius);
+    ctx.arc(
+      this.center[0] + dx,
+      this.center[1] + dy,
+      circleRadius,
+      Math.PI - angle,
+      Math.PI + angle,
+    );
+    ctx.arc(
+      this.center[0] - dx,
+      this.center[1] - dy,
+      circleRadius,
+      -angle,
+      +angle,
+    );
+  }
+}
+
+export class ConcaveLensGlass extends LensGlass {
+  protected sdfInternal(position: [number, number]): SDFOutput {
+    const heading: vec2 = this.heading;
+    const circleRadius = this.circleRadius;
+
+    const to: vec2 = [
+      position[0] - this.center[0],
+      position[1] - this.center[1],
+    ];
+    const { paraB: paraVec, perpB: perpVec } = projComp(to, heading);
+    const paraDist = Math.hypot(...paraVec);
+    const paraSD = paraDist - this.thickness;
+    const perpDist = Math.hypot(...perpVec);
+    const perpSD = perpDist - this.length / 2;
+    const paraSDF: SDFOutput = {
+      distance: paraSD,
+      normal: [paraVec[0] / paraDist, paraVec[1] / paraDist],
+    };
+    const perpSDF: SDFOutput = {
+      distance: perpSD,
+      normal: [perpVec[0] / perpDist, perpVec[1] / perpDist],
+    };
+    const toDistance = Math.hypot(...to);
+    to[0] /= toDistance;
+    to[1] /= toDistance;
+    const d = dot(to, heading);
+    const circleCenter: vec2 = [
+      this.center[0] +
+        Math.sign(d) * heading[0] * (circleRadius + this.thickness / 2),
+      this.center[1] +
+        Math.sign(d) * heading[1] * (circleRadius + this.thickness / 2),
+    ];
+    const dx = position[0] - circleCenter[0];
+    const dy = position[1] - circleCenter[1];
+    const distance = Math.hypot(dx, dy);
+    const circleSDF: SDFOutput = {
+      distance: circleRadius - distance,
+      normal: [-dx / distance, -dy / distance],
+    };
+    if (perpSD > 0) {
+      if (paraSD > 0) return perpSD < paraSD ? paraSDF : perpSDF;
+      return perpSDF;
+    }
+    if (paraDist < circleRadius) {
+      if (circleSDF.distance < 0)
+        if (perpSD > circleSDF.distance) return perpSDF;
+      return circleSDF;
+    }
+    return paraSDF;
+  }
+
+  public path(ctx: CanvasRenderingContext2D): void {
+    const heading: vec2 = this.heading;
+    const circleRadius = this.circleRadius;
+
+    const dx = heading[0] * (circleRadius + this.thickness / 2);
+    const dy = heading[1] * (circleRadius + this.thickness / 2);
     const angle = Math.asin(this.length / 2 / circleRadius);
     ctx.arc(
       this.center[0] + dx,
@@ -205,7 +287,7 @@ export class PolygonGlass extends Glass {
       if (distance < minDistance) {
         minDistance = distance;
         const edge: vec2 = [p2[0] - p1[0], p2[1] - p1[1]];
-        const edgeLength = Math.hypot(edge[0], edge[1]);
+        const edgeLength = Math.hypot(...edge);
         minNormal = [edge[1] / edgeLength, -edge[0] / edgeLength];
       }
     }

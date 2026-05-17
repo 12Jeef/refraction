@@ -15,6 +15,15 @@ export const lerp = (a: number, b: number, t: number): number =>
 
 export const dot = (a: vec2, b: vec2): number => a[0] * b[0] + a[1] * b[1];
 export const cross = (a: vec2, b: vec2): number => a[0] * b[1] - a[1] * b[0];
+export const proj = (a: vec2, b: vec2): vec2 => {
+  const f = dot(a, b) / (b[0] * b[0] + b[1] * b[1]);
+  return [b[0] * f, b[1] * f];
+};
+export const projComp = (a: vec2, b: vec2): { paraB: vec2; perpB: vec2 } => {
+  const paraB = proj(a, b);
+  const perpB: vec2 = [a[0] - paraB[0], a[1] - paraB[1]];
+  return { paraB, perpB };
+};
 
 export const CHUNK_SIZE = 500;
 
@@ -93,7 +102,7 @@ export const transitionRay = (
     normal[0] *= -1;
     normal[1] *= -1;
   }
-  const incidentDotNormal = ray.angle[0] * normal[0] + ray.angle[1] * normal[1];
+  const incidentDotNormal = dot(ray.angle, normal);
   if (incidentDotNormal > 0) return [];
   const rays =
     typeof pastMaterial.refractiveIndex === "number" &&
