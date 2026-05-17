@@ -114,10 +114,10 @@ export const simulateRays = (
   }
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   ctx.globalCompositeOperation = "lighter";
-  ctx.lineWidth = 1;
+  ctx.lineWidth = 5;
   for (let i = 0; i < 3; i++) {
     for (const line of lines) {
-      ctx.strokeStyle = `rgba(${255 * +(i === 0)}, ${255 * +(i === 1)}, ${255 * +(i === 2)}, ${line.rgb[i] * lerp(1e-2, 5e-2, (density - 1) / (0.5 - 1))})`;
+      ctx.strokeStyle = `rgba(${255 * +(i === 0)}, ${255 * +(i === 1)}, ${255 * +(i === 2)}, ${line.rgb[i] * 0.2 * lerp(1e-2, 5e-2, (density - 1) / (0.5 - 1))})`;
       ctx.beginPath();
       ctx.moveTo(...line.start);
       ctx.lineTo(...line.end);

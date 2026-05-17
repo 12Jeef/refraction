@@ -22,8 +22,8 @@ function App() {
   const render = useMemo(
     () => (src: HTMLElement) => {
       const lightCanvas = lightCanvasRef.current;
-      if (!lightCanvas) return;
       const glassCanvas = glassCanvasRef.current;
+      if (!lightCanvas) return;
       if (!glassCanvas) return;
       const rect = src.getBoundingClientRect();
       lightCanvas.width = rect.width;
@@ -35,8 +35,8 @@ function App() {
       glassCanvas.style.width = rect.width + "px";
       glassCanvas.style.height = rect.height + "px";
       const lightCtx = lightCanvas.getContext("2d");
-      if (!lightCtx) return;
       const glassCtx = glassCanvas.getContext("2d");
+      if (!lightCtx) return;
       if (!glassCtx) return;
       const glasses: Glass[] = [
         new CircleGlass({
@@ -77,7 +77,7 @@ function App() {
         }),
       ];
       const params: SimulationParams = {
-        density: 0.85,
+        density: 0.75,
         dwavelength: 50,
         maxDistance: 3e3,
         ctx: lightCtx,
@@ -88,12 +88,15 @@ function App() {
         ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
         ctx.save();
         ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
-        ctx.fillStyle = "#ffffff11";
+        ctx.fillStyle = ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 3;
+        ctx.lineJoin = "round";
         for (const glass of glasses) {
           ctx.beginPath();
           glass.path(ctx);
           ctx.closePath();
           ctx.fill();
+          ctx.stroke();
         }
         ctx.restore();
       }
@@ -127,11 +130,10 @@ function App() {
       <canvas
         ref={lightCanvasRef}
         className="block absolute top-0 left-0"
-        // style={{ filter: "blur(1px)" }}
       ></canvas>
       <canvas
         ref={glassCanvasRef}
-        className="block absolute top-0 left-0"
+        className="block absolute top-0 left-0 opacity-10"
       ></canvas>
     </div>
   );
