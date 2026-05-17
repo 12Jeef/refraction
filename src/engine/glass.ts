@@ -32,12 +32,8 @@ export abstract class Glass {
   protected abstract sdfInternal(position: [number, number]): SDFOutput;
   public sdf(position: [number, number]): FullSDFOutput {
     const sdf = this.sdfInternal(position);
-    if (sdf.distance < 0) {
-      sdf.distance *= -1;
-      sdf.normal[0] *= -1;
-      sdf.normal[1] *= -1;
-    }
-    return { ...sdf, glass: this };
+    const internal = sdf.distance < 0;
+    return { ...sdf, glass: this, internal };
   }
   public abstract path(ctx: CanvasRenderingContext2D): void;
 }

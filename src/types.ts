@@ -70,6 +70,7 @@ export type SDFOutput = {
 };
 export type FullSDFOutput = SDFOutput & {
   glass: Glass | null;
+  internal: boolean;
 };
 
 export type SimulationParams = {

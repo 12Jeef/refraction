@@ -88,7 +88,11 @@ export const transitionRay = (
 ): Ray[] => {
   const pastMaterial = ray.glass?.material ?? vacuumMaterial;
   const newMaterial = sdfOutput.glass?.material ?? vacuumMaterial;
-  const { normal } = sdfOutput;
+  const { normal, internal } = sdfOutput;
+  if (internal) {
+    normal[0] *= -1;
+    normal[1] *= -1;
+  }
   const incidentDotNormal = ray.angle[0] * normal[0] + ray.angle[1] * normal[1];
   if (incidentDotNormal > 0) return [];
   const rays =

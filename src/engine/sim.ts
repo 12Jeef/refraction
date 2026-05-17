@@ -101,7 +101,7 @@ export const stepRays = (
     const glass = ray.glass;
     if (glass !== null) {
       const sdf = glass.sdf(ray.position);
-      if (sdf.distance < 0.1) {
+      if (sdf.distance > -0.1) {
         const { max: newMax, line } = drawRay(
           ray,
           params.size,
@@ -115,7 +115,7 @@ export const stepRays = (
         );
         continue;
       }
-      moveRay(ray, sdf.distance);
+      moveRay(ray, -sdf.distance);
       if (!validRay(ray, params.size)) {
         const { max: newMax, line } = drawRay(
           ray,
@@ -162,7 +162,12 @@ export const stepRays = (
         const sdf = glass.sdf(ray.position);
         return sdf.distance < min.distance ? sdf : min;
       },
-      { distance: Infinity, normal: [0, 0], glass: null } as FullSDFOutput,
+      {
+        distance: Infinity,
+        normal: [0, 0],
+        glass: null,
+        internal: false,
+      } as FullSDFOutput,
     );
     if (sdf.distance < 0.1) {
       const { max: newMax, line } = drawRay(
@@ -218,6 +223,26 @@ export const simulateRays = (
     green: bufferGreen,
     blue: bufferBlue,
   };
+  for (const ray of rays) {
+    const glasses = glassSet.getGlassesAt(...getChunk(ray.position));
+    if (glasses.length === 0) {
+      ray.glass = null;
+      continue;
+    }
+    const sdf = glasses.reduce(
+      (min, glass) => {
+        const sdf = glass.sdf(ray.position);
+        return sdf.distance < min.distance ? sdf : min;
+      },
+      {
+        distance: Infinity,
+        normal: [0, 0],
+        glass: null,
+        internal: false,
+      } as FullSDFOutput,
+    );
+    if (sdf.distance < 0) ray.glass = sdf.glass;
+  }
   let max = 0;
   const lines: Line[] = [];
   while (rays.length > 0) {
