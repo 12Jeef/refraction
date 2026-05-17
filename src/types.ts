@@ -84,14 +84,8 @@ export type SimulationParams = {
   dwavelength: number;
   size: vec2;
   ctx: CanvasRenderingContext2D;
-  type: "BUFFER" | "RENDER";
 };
 
-export type Buffers = {
-  red: Float32Array;
-  green: Float32Array;
-  blue: Float32Array;
-};
 export type Line = {
   start: vec2;
   end: vec2;

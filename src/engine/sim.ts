@@ -1,5 +1,4 @@
 import type {
-  Buffers,
   FullSDFOutput,
   Line,
   Ray,
@@ -24,53 +23,15 @@ export const createRays = (lights: Light[], density: number): Ray[] => {
   return rays;
 };
 
-export const drawLine = (
-  size: vec2,
-  buffers: Buffers,
-  start: vec2,
-  end: vec2,
-  rgb: vec3,
-  type: "BUFFER" | "RENDER",
-): { max: number; line: Line } => {
-  if (type === "BUFFER") {
-    const dx = end[0] - start[0];
-    const dy = end[1] - start[1];
-    const steps = Math.ceil(Math.sqrt(dx * dx + dy * dy));
-    let max = 0;
-    for (let i = 1; i <= steps; i++) {
-      const t = i / steps;
-      const x = Math.floor(start[0] + t * dx);
-      const y = Math.floor(start[1] + t * dy);
-      if (x >= 0 && y >= 0 && x < size[0] && y < size[1]) {
-        buffers.red[y * size[0] + x] += rgb[0] * 1e-3;
-        buffers.green[y * size[0] + x] += rgb[1] * 1e-3;
-        buffers.blue[y * size[0] + x] += rgb[2] * 1e-3;
-        max = Math.max(
-          max,
-          buffers.red[y * size[0] + x],
-          buffers.green[y * size[0] + x],
-          buffers.blue[y * size[0] + x],
-        );
-      }
-    }
-    return { max, line: { start, end, rgb } };
-  }
-  return { max: 0, line: { start, end, rgb } };
+export const drawLine = (start: vec2, end: vec2, rgb: vec3): Line => {
+  return { start, end, rgb };
 };
 
-export const drawRay = (
-  ray: Ray,
-  size: vec2,
-  buffers: Buffers,
-  type: "BUFFER" | "RENDER",
-) => {
+export const drawRay = (ray: Ray) => {
   return drawLine(
-    size,
-    buffers,
     ray.origin,
     ray.position,
     wavelengthsToRGB(ray.wavelengths, 25),
-    type,
   );
 };
 
@@ -92,10 +53,8 @@ export const stepRays = (
   glassSet: GlassSet,
   rays: Ray[],
   params: SimulationParams,
-  buffers: Buffers,
-): { rays: Ray[]; max: number; lines: Line[] } => {
+): { rays: Ray[]; lines: Line[] } => {
   const newRays: Ray[] = [];
-  let max = 0;
   const lines: Line[] = [];
   for (const ray of rays) {
     if (ray.nTransitions > 10) continue;
@@ -103,14 +62,7 @@ export const stepRays = (
     if (glass !== null) {
       const sdf = glass.sdf(ray.position);
       if (sdf.distance > -0.1) {
-        const { max: newMax, line } = drawRay(
-          ray,
-          params.size,
-          buffers,
-          params.type,
-        );
-        max = Math.max(max, newMax);
-        lines.push(line);
+        lines.push(drawRay(ray));
         newRays.push(
           ...transitionRay(ray, { ...sdf, glass: null }, params.dwavelength),
         );
@@ -118,14 +70,7 @@ export const stepRays = (
       }
       moveRay(ray, -sdf.distance);
       if (!validRay(ray, params.size)) {
-        const { max: newMax, line } = drawRay(
-          ray,
-          params.size,
-          buffers,
-          params.type,
-        );
-        max = Math.max(max, newMax);
-        lines.push(line);
+        lines.push(drawRay(ray));
         continue;
       }
       newRays.push(ray);
@@ -145,14 +90,7 @@ export const stepRays = (
         ]) + 1e-3;
       moveRay(ray, distance);
       if (!validRay(ray, params.size)) {
-        const { max: newMax, line } = drawRay(
-          ray,
-          params.size,
-          buffers,
-          params.type,
-        );
-        max = Math.max(max, newMax);
-        lines.push(line);
+        lines.push(drawRay(ray));
         continue;
       }
       newRays.push(ray);
@@ -171,40 +109,18 @@ export const stepRays = (
       } as FullSDFOutput,
     );
     if (sdf.distance < 0.1) {
-      const { max: newMax, line } = drawRay(
-        ray,
-        params.size,
-        buffers,
-        params.type,
-      );
-      max = Math.max(max, newMax);
-      lines.push(line);
+      lines.push(drawRay(ray));
       newRays.push(...transitionRay(ray, sdf, params.dwavelength));
       continue;
     }
     moveRay(ray, sdf.distance);
     if (!validRay(ray, params.size)) {
-      const { max: newMax, line } = drawRay(
-        ray,
-        params.size,
-        buffers,
-        params.type,
-      );
-      max = Math.max(max, newMax);
-      lines.push(line);
+      lines.push(drawRay(ray));
       continue;
     }
     newRays.push(ray);
   }
-  return { rays: newRays, max, lines };
-};
-
-const bufferCache = new Map<string, Float32Array>();
-const allocBuffer = (size: vec2, type: string): Float32Array => {
-  const key = size.join(",") + "," + type;
-  if (!bufferCache.has(key))
-    bufferCache.set(key, new Float32Array(size[0] * size[1]));
-  return bufferCache.get(key)!;
+  return { rays: newRays, lines };
 };
 
 export const simulateRays = (
@@ -212,18 +128,7 @@ export const simulateRays = (
   lights: Light[],
   params: SimulationParams,
 ) => {
-  const { density, size, ctx, type } = params;
-  const bufferRed = allocBuffer(size, "red");
-  const bufferGreen = allocBuffer(size, "green");
-  const bufferBlue = allocBuffer(size, "blue");
-  bufferRed.fill(0);
-  bufferGreen.fill(0);
-  bufferBlue.fill(0);
-  const buffers: Buffers = {
-    red: bufferRed,
-    green: bufferGreen,
-    blue: bufferBlue,
-  };
+  const { density, size, ctx } = params;
   let rays: Ray[] = [];
   for (const light of lights) rays.push(...light.emit(density));
   for (const ray of rays) {
@@ -246,50 +151,24 @@ export const simulateRays = (
     );
     if (sdf.distance < 0) ray.glass = sdf.glass;
   }
-  let max = 0;
   const lines: Line[] = [];
   while (rays.length > 0) {
-    const {
-      rays: newRays,
-      max: newMax,
-      lines: newLines,
-    } = stepRays(glassSet, rays, params, buffers);
+    const { rays: newRays, lines: newLines } = stepRays(glassSet, rays, params);
     rays = newRays;
-    max = Math.max(max, newMax);
     lines.push(...newLines);
   }
-  max *= 2.5e-2;
-  if (type === "BUFFER") {
-    const data = ctx.createImageData(size[0], size[1]);
-    for (let i = 0; i < size[0] * size[1]; i++) {
-      data.data[i * 4] = Math.min(255, (buffers.red[i] / max) * 255);
-      data.data[i * 4 + 1] = Math.min(255, (buffers.green[i] / max) * 255);
-      data.data[i * 4 + 2] = Math.min(255, (buffers.blue[i] / max) * 255);
-      data.data[i * 4 + 3] = 255;
-    }
-    ctx.putImageData(data, 0, 0);
-  }
-  if (type === "RENDER") {
-    ctx.globalCompositeOperation = "source-over";
-    ctx.fillStyle = "#000011";
-    ctx.fillRect(0, 0, size[0], size[1]);
-    ctx.globalCompositeOperation = "lighter";
-    ctx.lineWidth = 1;
-    for (let i = 0; i < 3; i++) {
-      for (const line of lines) {
-        ctx.strokeStyle = `rgba(${255 * +(i === 0)}, ${255 * +(i === 1)}, ${255 * +(i === 2)}, ${line.rgb[i] * lerp(1e-2, 5e-2, (density - 1) / (0.5 - 1))})`;
-        ctx.beginPath();
-        ctx.moveTo(...line.start);
-        ctx.lineTo(...line.end);
-        ctx.stroke();
-      }
-    }
-    ctx.fillStyle = "#ffffff11";
-    for (const glass of glassSet.glasses) {
+  ctx.globalCompositeOperation = "source-over";
+  ctx.fillStyle = "#000011";
+  ctx.fillRect(0, 0, size[0], size[1]);
+  ctx.globalCompositeOperation = "lighter";
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 3; i++) {
+    for (const line of lines) {
+      ctx.strokeStyle = `rgba(${255 * +(i === 0)}, ${255 * +(i === 1)}, ${255 * +(i === 2)}, ${line.rgb[i] * lerp(1e-2, 5e-2, (density - 1) / (0.5 - 1))})`;
       ctx.beginPath();
-      glass.path(ctx);
-      ctx.closePath();
-      ctx.fill();
+      ctx.moveTo(...line.start);
+      ctx.lineTo(...line.end);
+      ctx.stroke();
     }
   }
 };
