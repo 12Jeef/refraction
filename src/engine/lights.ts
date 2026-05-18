@@ -45,6 +45,7 @@ export class PlaneLight extends Light {
         wavelengths: this.wavelengths,
         glass: null,
         distance: 0,
+        transitions: 0,
       });
     }
     return rays;
@@ -64,6 +65,7 @@ export class PointLight extends Light {
         wavelengths: this.wavelengths,
         glass: null,
         distance: 0,
+        transitions: 0,
       });
     }
     return rays;
@@ -102,6 +104,7 @@ export class DirectionalLight extends Light {
         wavelengths: this.wavelengths,
         glass: null,
         distance: 0,
+        transitions: 0,
       });
     }
     return rays;

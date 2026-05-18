@@ -8,7 +8,7 @@ import {
   PolygonGlass,
   RectangleGlass,
 } from "./engine/glass";
-import { Light, PointLight } from "./engine/lights";
+import { PointLight } from "./engine/lights";
 import { simulateRays } from "./engine/sim";
 import type { SimulationParams, vec2 } from "./types";
 import { lerp } from "./util";
@@ -37,11 +37,15 @@ function App() {
       angle: 0,
     }),
     new PolygonGlass({
-      vertices: [
-        [800, 400 - (100 * (Math.sqrt(3) / 2)) / 2],
-        [850, 400 + (100 * (Math.sqrt(3) / 2)) / 2],
-        [750, 400 + (100 * (Math.sqrt(3) / 2)) / 2],
-      ],
+      center: [800, 400],
+      vertices: Array.from(new Array(3).keys()).map(
+        (i) =>
+          [
+            50 * Math.cos(-Math.PI / 2 + i * ((2 * Math.PI) / 3)),
+            50 * Math.sin(-Math.PI / 2 + i * ((2 * Math.PI) / 3)),
+          ] as vec2,
+      ),
+      angle: 0,
     }),
     new RectangleGlass({
       center: [1400, 400],
@@ -98,7 +102,7 @@ function App() {
         ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
         ctx.save();
         ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
-        ctx.fillStyle = "#0088ff";
+        ctx.fillStyle = "#ffffff";
         for (const glass of glasses) {
           for (const knob of glass.knobs) {
             ctx.beginPath();
@@ -182,7 +186,12 @@ function App() {
         for (const glass of glasses)
           for (let i = 0; i < glass.knobs.length; i++) {
             const knob = glass.knobs[i];
-            stepKnob(knob, i, knob === dragged.knob, 3);
+            stepKnob(
+              knob,
+              i,
+              glass === dragged.glass,
+              knob === dragged.knob ? 3 : 0.5,
+            );
           }
       } else {
         const hovered = findHovered(mouse);
@@ -254,6 +263,7 @@ function App() {
       <canvas
         ref={glassKnobCanvasRef}
         className="block absolute top-0 left-0"
+        style={{ mixBlendMode: "difference" }}
       ></canvas>
     </div>
   );

@@ -214,6 +214,7 @@ export const transitionRay = (
           angle: reflectedAngleVec,
           glass: ray.glass,
           distance: ray.distance + 1,
+          transitions: ray.transitions + 1,
         };
         newRays.push(reflectedRays[h]);
       }
@@ -241,6 +242,7 @@ export const transitionRay = (
           angle: refractedAngleVec,
           glass: sdfOutput.glass,
           distance: ray.distance + 1,
+          transitions: ray.transitions + 1,
         };
         newRays.push(refractedRays[h]);
       }

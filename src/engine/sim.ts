@@ -42,7 +42,7 @@ export const stepRays = (
   const newRays: Ray[] = [];
   const lines: Line[] = [];
   for (const ray of rays) {
-    if (ray.distance > params.maxDistance) {
+    if (ray.distance > params.maxDistance || ray.transitions > 10) {
       lines.push(drawRay(ray));
       continue;
     }

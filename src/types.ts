@@ -25,6 +25,7 @@ export type Ray = {
   wavelengths: Wavelengths;
   glass: Glass | null;
   distance: number;
+  transitions: number;
 };
 
 export type LightProps = {
@@ -66,7 +67,9 @@ export type RectangleGlassProps = GlassProps & {
   angle: number;
 };
 export type PolygonGlassProps = GlassProps & {
+  center: vec2;
   vertices: vec2[];
+  angle: number;
 };
 
 export type SDFOutput = {

@@ -462,11 +462,53 @@ export class RectangleGlass extends Glass {
 }
 
 export class PolygonGlass extends Glass {
+  public center: vec2;
   public vertices: vec2[];
+  public angle: number;
 
-  public constructor({ vertices, ...glassProps }: PolygonGlassProps) {
+  public constructor({
+    center,
+    vertices,
+    angle,
+    ...glassProps
+  }: PolygonGlassProps) {
     super(glassProps);
+    this.center = center;
     this.vertices = vertices;
+    this.angle = angle;
+
+    this.knobs.push(
+      new Knob(
+        (p) => (this.center = p),
+        () => this.center,
+      ),
+      new Knob(
+        (p) =>
+          (this.angle = Math.atan2(
+            p[1] - this.center[1],
+            p[0] - this.center[0],
+          )),
+        () => {
+          const heading = [Math.cos(this.angle), Math.sin(this.angle)];
+          const r =
+            this.vertices.reduce((a, b) => a + Math.hypot(...b), 0) /
+            this.vertices.length;
+          return [
+            this.center[0] + (r / 2) * heading[0],
+            this.center[1] + (r / 2) * heading[1],
+          ];
+        },
+      ),
+    );
+  }
+
+  private convert(p: vec2): vec2 {
+    const cos = Math.cos(this.angle);
+    const sin = Math.sin(this.angle);
+    return [
+      this.center[0] + p[0] * cos - p[1] * sin,
+      this.center[1] + p[0] * sin + p[1] * cos,
+    ];
   }
 
   protected sdfInternal(position: vec2): SDFOutput {
@@ -474,8 +516,8 @@ export class PolygonGlass extends Glass {
     let minNormal: vec2 = [0, 0];
     let inside = false;
     for (let i = 0; i < this.vertices.length; i++) {
-      const p1 = this.vertices[i];
-      const p2 = this.vertices[(i + 1) % this.vertices.length];
+      const p1 = this.convert(this.vertices[i]);
+      const p2 = this.convert(this.vertices[(i + 1) % this.vertices.length]);
       const yCheck = p1[1] > position[1] !== p2[1] > position[1];
       const xIntersect =
         ((p2[0] - p1[0]) * (position[1] - p1[1])) / (p2[1] - p1[1]) + p1[0];
@@ -494,8 +536,9 @@ export class PolygonGlass extends Glass {
 
   public path(ctx: CanvasRenderingContext2D): void {
     for (let i = 0; i < this.vertices.length; i++) {
-      if (i > 0) ctx.lineTo(...this.vertices[i]);
-      else ctx.moveTo(...this.vertices[i]);
+      const p = this.convert(this.vertices[i]);
+      if (i > 0) ctx.lineTo(...p);
+      else ctx.moveTo(...p);
     }
   }
 }
