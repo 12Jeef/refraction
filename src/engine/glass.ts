@@ -21,11 +21,40 @@ export const mirrorMaterial: Material = {
   refractiveIndex: 1e9,
 };
 
+export class Knob {
+  public readonly onDrag: (position: vec2) => void;
+  public readonly getPosition: () => vec2;
+  public time: number;
+  public value: boolean;
+  public scale: number;
+
+  public constructor(
+    onDrag: (position: vec2) => void,
+    getPosition: () => vec2,
+  ) {
+    this.onDrag = onDrag;
+    this.getPosition = getPosition;
+    this.time = 0;
+    this.value = false;
+    this.scale = 0;
+  }
+
+  public drag(position: vec2) {
+    this.onDrag(position);
+  }
+
+  public get position(): vec2 {
+    return this.getPosition();
+  }
+}
+
 export abstract class Glass {
   public material: Material;
+  public readonly knobs: Knob[];
 
   public constructor({ material }: GlassProps) {
     this.material = material ?? defaultMaterial;
+    this.knobs = [];
   }
 
   protected abstract sdfInternal(position: vec2): SDFOutput;
@@ -40,11 +69,32 @@ export abstract class Glass {
 export class CircleGlass extends Glass {
   public center: vec2;
   public radius: number;
+  private angle: number;
 
   public constructor({ center, radius, ...glassProps }: CircleGlassProps) {
     super(glassProps);
     this.center = center;
     this.radius = radius;
+    this.angle = 0;
+
+    this.knobs.push(
+      new Knob(
+        (p) => (this.center = p),
+        () => this.center,
+      ),
+      new Knob(
+        (p) => {
+          const dx = p[0] - this.center[0];
+          const dy = p[1] - this.center[1];
+          this.radius = Math.max(10, Math.hypot(dx, dy));
+          this.angle = Math.atan2(dy, dx);
+        },
+        () => [
+          this.center[0] + Math.cos(this.angle) * this.radius,
+          this.center[1] + Math.sin(this.angle) * this.radius,
+        ],
+      ),
+    );
   }
 
   protected sdfInternal(position: vec2): SDFOutput {
@@ -78,13 +128,81 @@ export abstract class LensGlass extends Glass {
     this.thickness = thickness;
     this.length = length;
     this.angle = angle;
+
+    const onDrag = (p: vec2, setThickness: boolean, setLength: boolean) => {
+      const { paraB: paraVec, perpB: perpVec } = projComp(
+        [p[0] - this.center[0], p[1] - this.center[1]],
+        this.heading,
+      );
+      if (setThickness)
+        this.thickness = Math.max(
+          20,
+          Math.min(this.length, Math.hypot(...paraVec) * 2),
+        );
+      if (setLength) {
+        this.length = Math.max(20, Math.hypot(...perpVec) * 2);
+        this.thickness = Math.min(this.length, this.thickness);
+      }
+    };
+
+    this.knobs.push(
+      new Knob(
+        (p) => (this.center = p),
+        () => this.center,
+      ),
+      new Knob(
+        (p) => onDrag(p, true, false),
+        () => {
+          const heading = this.heading;
+          return [
+            this.center[0] + (this.thickness / 2) * heading[0],
+            this.center[1] + (this.thickness / 2) * heading[1],
+          ];
+        },
+      ),
+      new Knob(
+        (p) => onDrag(p, false, true),
+        () => {
+          const heading = this.heading;
+          return [
+            this.center[0] + (this.length / 2) * heading[1],
+            this.center[1] - (this.length / 2) * heading[0],
+          ];
+        },
+      ),
+      // new Knob(
+      //   (p) => onDrag(p, true, true),
+      //   () => {
+      //     const heading = this.heading;
+      //     return [
+      //       this.center[0] +
+      //         (this.thickness / 2) * heading[0] +
+      //         (this.length / 2) * heading[1],
+      //       this.center[1] +
+      //         (this.thickness / 2) * heading[1] -
+      //         (this.length / 2) * heading[0],
+      //     ];
+      //   },
+      // ),
+      new Knob(
+        (p) =>
+          (this.angle = Math.atan2(
+            p[1] - this.center[1],
+            p[0] - this.center[0],
+          )),
+        () => {
+          const heading = this.heading;
+          return [
+            this.center[0] + this.thickness * heading[0],
+            this.center[1] + this.thickness * heading[1],
+          ];
+        },
+      ),
+    );
   }
 
   public get heading(): vec2 {
-    return [
-      Math.cos(this.angle * (Math.PI / 180)),
-      Math.sin(this.angle * (Math.PI / 180)),
-    ];
+    return [Math.cos(this.angle), Math.sin(this.angle)];
   }
 
   public get circleRadius(): number {
@@ -133,15 +251,15 @@ export class ConvexLensGlass extends LensGlass {
       this.center[0] + dx,
       this.center[1] + dy,
       circleRadius,
-      Math.PI - angle,
-      Math.PI + angle,
+      Math.PI - angle + this.angle,
+      Math.PI + angle + this.angle,
     );
     ctx.arc(
       this.center[0] - dx,
       this.center[1] - dy,
       circleRadius,
-      -angle,
-      +angle,
+      -angle + this.angle,
+      +angle + this.angle,
     );
   }
 }
@@ -208,15 +326,15 @@ export class ConcaveLensGlass extends LensGlass {
       this.center[0] + dx,
       this.center[1] + dy,
       circleRadius,
-      Math.PI - angle,
-      Math.PI + angle,
+      Math.PI - angle + this.angle,
+      Math.PI + angle + this.angle,
     );
     ctx.arc(
       this.center[0] - dx,
       this.center[1] - dy,
       circleRadius,
-      -angle,
-      +angle,
+      -angle + this.angle,
+      +angle + this.angle,
     );
   }
 }
@@ -239,6 +357,56 @@ export class RectangleGlass extends Glass {
     this.width = width;
     this.height = height;
     this.angle = angle;
+
+    const onDrag = (p: vec2, setWidth: boolean, setHeight: boolean) => {
+      const { paraB: paraVec, perpB: perpVec } = projComp(
+        [p[0] - this.center[0], p[1] - this.center[1]],
+        [Math.cos(this.angle), Math.sin(this.angle)],
+      );
+      if (setWidth) this.width = Math.max(20, Math.hypot(...paraVec) * 2);
+      if (setHeight) this.height = Math.max(20, Math.hypot(...perpVec) * 2);
+    };
+
+    this.knobs.push(
+      new Knob(
+        (p) => (this.center = p),
+        () => this.center,
+      ),
+      new Knob(
+        (p) => onDrag(p, true, false),
+        () => {
+          const heading = [Math.cos(this.angle), Math.sin(this.angle)];
+          return [
+            this.center[0] + (this.width / 2) * heading[0],
+            this.center[1] + (this.width / 2) * heading[1],
+          ];
+        },
+      ),
+      new Knob(
+        (p) => onDrag(p, false, true),
+        () => {
+          const heading = [Math.cos(this.angle), Math.sin(this.angle)];
+          return [
+            this.center[0] + (this.height / 2) * heading[1],
+            this.center[1] - (this.height / 2) * heading[0],
+          ];
+        },
+      ),
+      new Knob(
+        (p) =>
+          (this.angle = Math.atan2(
+            p[1] - this.center[1],
+            p[0] - this.center[0],
+          )),
+        () => {
+          const heading = [Math.cos(this.angle), Math.sin(this.angle)];
+          return [
+            this.center[0] + (this.width / 4) * heading[0],
+            this.center[1] + (this.width / 4) * heading[1],
+          ];
+        },
+      ),
+    );
   }
 
   protected sdfInternal(position: vec2): SDFOutput {
