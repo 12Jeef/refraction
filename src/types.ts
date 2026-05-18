@@ -31,7 +31,6 @@ export type Ray = {
 export type LightProps = {
   position: vec2;
   wavelengths: Wavelengths;
-  amplitude: number;
 };
 export type PlaneLightProps = LightProps & {
   length: number;

@@ -4,20 +4,25 @@ import {
   ConcaveLensGlass,
   ConvexLensGlass,
   Glass,
-  Knob,
   PolygonGlass,
   RectangleGlass,
 } from "./engine/glass";
-import { PointLight } from "./engine/lights";
+import {
+  DirectionalLight,
+  Light,
+  PlaneLight,
+  PointLight,
+} from "./engine/lights";
 import { simulateRays } from "./engine/sim";
 import type { SimulationParams, vec2 } from "./types";
 import { lerp } from "./util";
+import type { Knob } from "./engine/knob";
 
 function App() {
   const ref = useRef<HTMLDivElement>(null);
   const lightCanvasRef = useRef<HTMLCanvasElement>(null);
   const glassCanvasRef = useRef<HTMLCanvasElement>(null);
-  const glassKnobCanvasRef = useRef<HTMLCanvasElement>(null);
+  const knobCanvasRef = useRef<HTMLCanvasElement>(null);
 
   const [glasses, setGlasses] = useState([
     new CircleGlass({
@@ -57,30 +62,40 @@ function App() {
   ]);
   const [lights, setLights] = useState([
     new PointLight({
+      position: [600, 200],
+      wavelengths: { range: [400, 500], amplitude: 1 },
+    }),
+    new DirectionalLight({
       position: [800, 200],
-      wavelengths: { range: [400, 700], amplitude: 1 },
-      amplitude: 1,
+      wavelengths: { range: [500, 600], amplitude: 1 },
+      angle: 0,
+      angleSpread: Math.PI / 6,
+    }),
+    new PlaneLight({
+      position: [1000, 200],
+      wavelengths: { range: [600, 700], amplitude: 1 },
+      length: 100,
+      angle: 0,
     }),
   ]);
 
-  const renderGlasses = useMemo(
+  const renderGlassesAndLights = useMemo(
     () => (src: HTMLElement) => {
       const glassCanvas = glassCanvasRef.current;
-      const glassKnobCanvas = glassKnobCanvasRef.current;
+      const knobCanvas = knobCanvasRef.current;
       if (!glassCanvas) return;
-      if (!glassKnobCanvas) return;
+      if (!knobCanvas) return;
       const rect = src.getBoundingClientRect();
-      glassCanvas.width = glassKnobCanvas.width =
+      glassCanvas.width = knobCanvas.width =
         rect.width * window.devicePixelRatio;
-      glassCanvas.height = glassKnobCanvas.height =
+      glassCanvas.height = knobCanvas.height =
         rect.height * window.devicePixelRatio;
-      glassCanvas.style.width = glassKnobCanvas.style.width = rect.width + "px";
-      glassCanvas.style.height = glassKnobCanvas.style.height =
-        rect.height + "px";
+      glassCanvas.style.width = knobCanvas.style.width = rect.width + "px";
+      glassCanvas.style.height = knobCanvas.style.height = rect.height + "px";
       const glassCtx = glassCanvas.getContext("2d");
-      const glassKnobCtx = glassKnobCanvas.getContext("2d");
+      const knobCtx = knobCanvas.getContext("2d");
       if (!glassCtx) return;
-      if (!glassKnobCtx) return;
+      if (!knobCtx) return;
       {
         const ctx = glassCtx;
         ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
@@ -99,7 +114,7 @@ function App() {
         ctx.restore();
       }
       {
-        const ctx = glassKnobCtx;
+        const ctx = knobCtx;
         ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
         ctx.save();
         ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
@@ -111,12 +126,19 @@ function App() {
             ctx.fill();
           }
         }
+        for (const light of lights) {
+          for (const knob of light.knobs) {
+            ctx.beginPath();
+            knob.path(ctx);
+            ctx.fill();
+          }
+        }
         ctx.restore();
       }
     },
-    [glassCanvasRef, glassKnobCanvasRef, glasses],
+    [glassCanvasRef, knobCanvasRef, glasses, lights],
   );
-  const renderLights = useMemo(
+  const simulateLights = useMemo(
     () => (src: HTMLElement) => {
       const lightCanvas = lightCanvasRef.current;
       if (!lightCanvas) return;
@@ -141,24 +163,38 @@ function App() {
   useEffect(() => {
     const elem = ref.current;
     if (!elem) return;
-    const observer = new ResizeObserver(() => {
-      renderGlasses(elem);
-      renderLights(elem);
-    });
+    const observer = new ResizeObserver(() => (simulateLightsRequested = true));
     observer.observe(elem);
-    let dragged: { glass: Glass; knob: Knob | null } | null = null;
+    let dragged: { thing: Glass | Light; knob: Knob | null } | null = null;
     const findHovered = (
       pos: vec2,
-    ): { glass: Glass; knob: Knob | null } | null => {
+    ): { thing: Glass | Light; knob: Knob | null } | null => {
       for (const glass of glasses) {
         const sdf = glass.sdf(pos);
         for (const knob of glass.knobs) {
           const knobPos = knob.position;
           const d = Math.hypot(pos[0] - knobPos[0], pos[1] - knobPos[1]);
-          if (d <= 5) return { glass, knob };
+          if (d <= 5) return { thing: glass, knob };
         }
-        if (sdf.distance < 0) return { glass, knob: null };
+        if (sdf.distance < 0) return { thing: glass, knob: null };
       }
+      let nearDistance = Infinity;
+      let nearLight: Light | null = null;
+      for (const light of lights) {
+        let knobNearDistance = Infinity;
+        for (const knob of light.knobs) {
+          const knobPos = knob.position;
+          const d = Math.hypot(pos[0] - knobPos[0], pos[1] - knobPos[1]);
+          if (d <= 5) return { thing: light, knob };
+          knobNearDistance = Math.min(knobNearDistance, d);
+        }
+        if (knobNearDistance < nearDistance) {
+          nearDistance = knobNearDistance;
+          nearLight = light;
+        }
+      }
+      if (nearDistance < 40 && nearLight)
+        return { thing: nearLight, knob: null };
       return null;
     };
     const stepKnob = (
@@ -180,7 +216,7 @@ function App() {
     };
     let mouse: vec2 = [0, 0];
     let frame: number = -1;
-    let renderLightsRequested: boolean = true;
+    let simulateLightsRequested: boolean = true;
     const update = () => {
       frame = window.requestAnimationFrame(update);
       if (dragged) {
@@ -190,11 +226,23 @@ function App() {
             stepKnob(
               knob,
               i,
-              glass === dragged.glass,
+              glass === dragged.thing,
+              knob === dragged.knob ? 3 : 0,
+            );
+          }
+        for (const light of lights)
+          for (let i = 0; i < light.knobs.length; i++) {
+            const knob = light.knobs[i];
+            stepKnob(
+              knob,
+              i,
+              light === dragged.thing,
               knob === dragged.knob ? 3 : 0,
             );
           }
       } else {
+        for (const glass of glasses) glass.update();
+        for (const light of lights) light.update();
         const hovered = findHovered(mouse);
         if (hovered) {
           for (const glass of glasses)
@@ -203,7 +251,17 @@ function App() {
               stepKnob(
                 knob,
                 i,
-                glass === hovered.glass,
+                glass === hovered.thing,
+                knob === hovered.knob ? 2 : 1,
+              );
+            }
+          for (const light of lights)
+            for (let i = 0; i < light.knobs.length; i++) {
+              const knob = light.knobs[i];
+              stepKnob(
+                knob,
+                i,
+                light === hovered.thing,
                 knob === hovered.knob ? 2 : 1,
               );
             }
@@ -213,12 +271,17 @@ function App() {
               const knob = glass.knobs[i];
               stepKnob(knob, i, false);
             }
+          for (const light of lights)
+            for (let i = 0; i < light.knobs.length; i++) {
+              const knob = light.knobs[i];
+              stepKnob(knob, i, false);
+            }
         }
       }
-      renderGlasses(elem);
-      if (!renderLightsRequested) return;
-      renderLightsRequested = false;
-      renderLights(elem);
+      renderGlassesAndLights(elem);
+      if (!simulateLightsRequested) return;
+      simulateLightsRequested = false;
+      simulateLights(elem);
     };
     update();
     const onMouseDown = (e: MouseEvent) => {
@@ -234,7 +297,7 @@ function App() {
       if (!dragged) return;
       if (!dragged.knob) return;
       dragged.knob.drag(mouse);
-      renderLightsRequested = true;
+      simulateLightsRequested = true;
     };
     elem.addEventListener("mousedown", onMouseDown);
     elem.addEventListener("mouseup", onMouseUp);
@@ -246,7 +309,7 @@ function App() {
       elem.removeEventListener("mouseup", onMouseUp);
       elem.removeEventListener("mousemove", onMouseMove);
     };
-  }, [ref, renderGlasses, renderLights, glasses]);
+  }, [ref, renderGlassesAndLights, simulateLights, glasses, lights]);
 
   return (
     <div
@@ -262,7 +325,7 @@ function App() {
         className="block absolute top-0 left-0 opacity-10"
       ></canvas>
       <canvas
-        ref={glassKnobCanvasRef}
+        ref={knobCanvasRef}
         className="block absolute top-0 left-0"
         style={{ mixBlendMode: "difference" }}
       ></canvas>
