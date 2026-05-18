@@ -70,6 +70,7 @@ export type PolygonGlassProps = GlassProps & {
   center: vec2;
   vertices: vec2[];
   angle: number;
+  knobAngleOffset?: number;
 };
 
 export type SDFOutput = {

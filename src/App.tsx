@@ -46,6 +46,7 @@ function App() {
           ] as vec2,
       ),
       angle: 0,
+      knobAngleOffset: -Math.PI / 2,
     }),
     new RectangleGlass({
       center: [1400, 400],
@@ -106,7 +107,7 @@ function App() {
         for (const glass of glasses) {
           for (const knob of glass.knobs) {
             ctx.beginPath();
-            ctx.arc(...knob.getPosition(), 3 * knob.scale, 0, 2 * Math.PI);
+            knob.path(ctx);
             ctx.fill();
           }
         }
@@ -152,7 +153,7 @@ function App() {
       for (const glass of glasses) {
         const sdf = glass.sdf(pos);
         for (const knob of glass.knobs) {
-          const knobPos = knob.getPosition();
+          const knobPos = knob.position;
           const d = Math.hypot(pos[0] - knobPos[0], pos[1] - knobPos[1]);
           if (d <= 5) return { glass, knob };
         }
@@ -190,7 +191,7 @@ function App() {
               knob,
               i,
               glass === dragged.glass,
-              knob === dragged.knob ? 3 : 0.5,
+              knob === dragged.knob ? 3 : 0,
             );
           }
       } else {
@@ -232,7 +233,7 @@ function App() {
       mouse = [e.offsetX, e.offsetY];
       if (!dragged) return;
       if (!dragged.knob) return;
-      dragged.knob.onDrag(mouse);
+      dragged.knob.drag(mouse);
       renderLightsRequested = true;
     };
     elem.addEventListener("mousedown", onMouseDown);
