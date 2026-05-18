@@ -24,60 +24,69 @@ function App() {
   const glassCanvasRef = useRef<HTMLCanvasElement>(null);
   const knobCanvasRef = useRef<HTMLCanvasElement>(null);
 
-  const [glasses, setGlasses] = useState([
-    new CircleGlass({
-      center: [200, 400],
-      radius: 50,
-    }),
-    new ConvexLensGlass({
-      center: [500, 400],
-      thickness: 25,
-      length: 100,
-      angle: 0,
-    }),
-    new ConcaveLensGlass({
-      center: [1100, 400],
-      thickness: 25,
-      length: 100,
-      angle: 0,
-    }),
-    new PolygonGlass({
-      center: [800, 400],
-      vertices: Array.from(new Array(3).keys()).map(
-        (i) =>
-          [
-            50 * Math.cos(-Math.PI / 2 + i * ((2 * Math.PI) / 3)),
-            50 * Math.sin(-Math.PI / 2 + i * ((2 * Math.PI) / 3)),
-          ] as vec2,
-      ),
-      angle: 0,
-      knobAngleOffset: -Math.PI / 2,
-    }),
-    new RectangleGlass({
-      center: [1400, 400],
-      width: 50,
-      height: 100,
-      angle: Math.PI / 6,
-    }),
-  ]);
-  const [lights, setLights] = useState([
-    new PointLight({
-      position: [600, 200],
-      wavelengths: { range: [400, 500], amplitude: 1 },
-    }),
-    new DirectionalLight({
-      position: [800, 200],
-      wavelengths: { range: [500, 600], amplitude: 1 },
-      angle: 0,
-      angleSpread: Math.PI / 6,
-    }),
-    new PlaneLight({
-      position: [1000, 200],
-      wavelengths: { range: [600, 700], amplitude: 1 },
-      length: 100,
-      angle: 0,
-    }),
-  ]);
+  const glassesBase: Glass[] = useMemo(
+    () => [
+      new CircleGlass({
+        center: [200, 400],
+        radius: 50,
+      }),
+      new ConvexLensGlass({
+        center: [500, 400],
+        thickness: 25,
+        length: 100,
+        angle: 0,
+      }),
+      new ConcaveLensGlass({
+        center: [1100, 400],
+        thickness: 25,
+        length: 100,
+        angle: 0,
+      }),
+      new PolygonGlass({
+        center: [800, 400],
+        vertices: Array.from(new Array(3).keys()).map(
+          (i) =>
+            [
+              50 * Math.cos(-Math.PI / 2 + i * ((2 * Math.PI) / 3)),
+              50 * Math.sin(-Math.PI / 2 + i * ((2 * Math.PI) / 3)),
+            ] as vec2,
+        ),
+        angle: 0,
+        knobAngleOffset: -Math.PI / 2,
+      }),
+      new RectangleGlass({
+        center: [1400, 400],
+        width: 50,
+        height: 100,
+        angle: Math.PI / 6,
+      }),
+    ],
+    [],
+  );
+  const lightsBase: Light[] = useMemo(
+    () => [
+      new PointLight({
+        position: [600, 200],
+        wavelengths: { range: [400, 500], amplitude: 1 },
+      }),
+      new DirectionalLight({
+        position: [800, 200],
+        wavelengths: { range: [500, 600], amplitude: 1 },
+        angle: 0,
+        angleSpread: Math.PI / 6,
+      }),
+      new PlaneLight({
+        position: [1000, 200],
+        wavelengths: { range: [600, 700], amplitude: 1 },
+        length: 100,
+        angle: 0,
+      }),
+    ],
+    [],
+  );
+  const [glasses, setGlasses] = useState(glassesBase);
+  const [lights, setLights] = useState(lightsBase);
+  const selectedRef = useRef<Glass | Light | null>(null);
 
   const renderGlassesAndLights = useMemo(
     () => (src: HTMLElement) => {
@@ -118,11 +127,20 @@ function App() {
         ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
         ctx.save();
         ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
-        ctx.fillStyle = "#ffffff";
+        ctx.fillStyle = ctx.strokeStyle = "#ffffff";
+        ctx.lineJoin = "round";
         for (const glass of glasses) {
+          ctx.lineWidth = glass.value * 2;
+          ctx.globalAlpha = glass.value;
+          ctx.beginPath();
+          glass.path(ctx);
+          ctx.closePath();
+          ctx.stroke();
+          ctx.globalAlpha = 1;
           for (const knob of glass.knobs) {
             ctx.beginPath();
             knob.path(ctx);
+            ctx.closePath();
             ctx.fill();
           }
         }
@@ -219,6 +237,18 @@ function App() {
     let simulateLightsRequested: boolean = true;
     const update = () => {
       frame = window.requestAnimationFrame(update);
+      for (const glass of glasses)
+        glass.value = lerp(
+          glass.value,
+          glass === selectedRef.current ? 1 : 0,
+          0.1,
+        );
+      for (const light of lights)
+        light.value = lerp(
+          light.value,
+          light === selectedRef.current ? 1 : 0,
+          0.1,
+        );
       if (dragged) {
         for (const glass of glasses)
           for (let i = 0; i < glass.knobs.length; i++) {
@@ -226,7 +256,7 @@ function App() {
             stepKnob(
               knob,
               i,
-              glass === dragged.thing,
+              glass === selectedRef.current || glass === dragged.thing,
               knob === dragged.knob ? 3 : 0,
             );
           }
@@ -236,7 +266,7 @@ function App() {
             stepKnob(
               knob,
               i,
-              light === dragged.thing,
+              light === selectedRef.current || light === dragged.thing,
               knob === dragged.knob ? 3 : 0,
             );
           }
@@ -251,7 +281,7 @@ function App() {
               stepKnob(
                 knob,
                 i,
-                glass === hovered.thing,
+                glass === selectedRef.current || glass === hovered.thing,
                 knob === hovered.knob ? 2 : 1,
               );
             }
@@ -261,7 +291,7 @@ function App() {
               stepKnob(
                 knob,
                 i,
-                light === hovered.thing,
+                light === selectedRef.current || light === hovered.thing,
                 knob === hovered.knob ? 2 : 1,
               );
             }
@@ -269,12 +299,12 @@ function App() {
           for (const glass of glasses)
             for (let i = 0; i < glass.knobs.length; i++) {
               const knob = glass.knobs[i];
-              stepKnob(knob, i, false);
+              stepKnob(knob, i, glass === selectedRef.current);
             }
           for (const light of lights)
             for (let i = 0; i < light.knobs.length; i++) {
               const knob = light.knobs[i];
-              stepKnob(knob, i, false);
+              stepKnob(knob, i, light === selectedRef.current);
             }
         }
       }
@@ -287,6 +317,8 @@ function App() {
     const onMouseDown = (e: MouseEvent) => {
       mouse = [e.offsetX, e.offsetY];
       dragged = findHovered(mouse);
+      selectedRef.current = dragged?.thing ?? null;
+      if (!dragged?.knob) dragged = null;
     };
     const onMouseUp = (e: MouseEvent) => {
       if (!dragged) return;
@@ -309,7 +341,14 @@ function App() {
       elem.removeEventListener("mouseup", onMouseUp);
       elem.removeEventListener("mousemove", onMouseMove);
     };
-  }, [ref, renderGlassesAndLights, simulateLights, glasses, lights]);
+  }, [
+    ref,
+    renderGlassesAndLights,
+    simulateLights,
+    glasses,
+    lights,
+    selectedRef,
+  ]);
 
   return (
     <div

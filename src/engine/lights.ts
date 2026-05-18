@@ -13,11 +13,13 @@ export abstract class Light {
   public position: vec2;
   public wavelengths: Wavelengths;
   public readonly knobs: Knob[];
+  public value: number;
 
   public constructor({ position, wavelengths }: LightProps) {
     this.position = position;
     this.wavelengths = wavelengths;
     this.knobs = [];
+    this.value = 0;
 
     this.knobs.push(
       new Knob(

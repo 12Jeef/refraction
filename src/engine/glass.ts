@@ -25,10 +25,12 @@ export const mirrorMaterial: Material = {
 export abstract class Glass {
   public material: Material;
   public readonly knobs: Knob[];
+  public value: number;
 
   public constructor({ material }: GlassProps) {
     this.material = material ?? defaultMaterial;
     this.knobs = [];
+    this.value = 0;
   }
 
   protected abstract sdfInternal(position: vec2): SDFOutput;
@@ -71,8 +73,8 @@ export class CircleGlass extends Glass {
         ],
         drawTrianglePath(
           () => [
-            this.center[0] + Math.cos(this.angle) * (this.radius + 1.5),
-            this.center[1] + Math.sin(this.angle) * (this.radius + 1.5),
+            this.center[0] + Math.cos(this.angle) * (this.radius + 1),
+            this.center[1] + Math.sin(this.angle) * (this.radius + 1),
           ],
           () => this.angle,
         ),
@@ -149,8 +151,8 @@ export abstract class LensGlass extends Glass {
           () => {
             const heading = this.heading;
             return [
-              this.center[0] + (this.thickness / 2 + 1.5) * heading[0],
-              this.center[1] + (this.thickness / 2 + 1.5) * heading[1],
+              this.center[0] + (this.thickness / 2 + 1) * heading[0],
+              this.center[1] + (this.thickness / 2 + 1) * heading[1],
             ];
           },
           () => this.angle,
@@ -169,8 +171,8 @@ export abstract class LensGlass extends Glass {
           () => {
             const heading = this.heading;
             return [
-              this.center[0] + (this.length / 2 + 1.5) * heading[1],
-              this.center[1] - (this.length / 2 + 1.5) * heading[0],
+              this.center[0] + (this.length / 2 + 1) * heading[1],
+              this.center[1] - (this.length / 2 + 1) * heading[0],
             ];
           },
           () => this.angle - Math.PI / 2,
@@ -414,8 +416,8 @@ export class RectangleGlass extends Glass {
           () => {
             const heading = [Math.cos(this.angle), Math.sin(this.angle)];
             return [
-              this.center[0] + (this.width / 2 + 1.5) * heading[0],
-              this.center[1] + (this.width / 2 + 1.5) * heading[1],
+              this.center[0] + (this.width / 2 + 1) * heading[0],
+              this.center[1] + (this.width / 2 + 1) * heading[1],
             ];
           },
           () => this.angle,
@@ -434,8 +436,8 @@ export class RectangleGlass extends Glass {
           () => {
             const heading = [Math.cos(this.angle), Math.sin(this.angle)];
             return [
-              this.center[0] + (this.height / 2 + 1.5) * heading[1],
-              this.center[1] - (this.height / 2 + 1.5) * heading[0],
+              this.center[0] + (this.height / 2 + 1) * heading[1],
+              this.center[1] - (this.height / 2 + 1) * heading[0],
             ];
           },
           () => this.angle - Math.PI / 2,
