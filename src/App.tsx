@@ -108,7 +108,11 @@ export default function App() {
     const observer = new ResizeObserver(onResize);
     observer.observe(menu);
     onResize();
-    return () => observer.disconnect();
+    const interval = setInterval(onResize, 100);
+    return () => {
+      observer.disconnect();
+      clearInterval(interval);
+    };
   }, [menuOpen, menu]);
 
   return (
@@ -123,10 +127,11 @@ export default function App() {
         {selected && (
           <>
             <motion.div
-              initial={{ x: "-5rem", y: "5rem" }}
-              animate={{ x: "0rem", y: "0rem" }}
-              exit={{ x: "-5rem", y: "5rem" }}
+              initial={{ x: "-5rem", y: "5rem", opacity: 0, scale: 0.75 }}
+              animate={{ x: "0rem", y: "0rem", opacity: 1, scale: 1 }}
+              exit={{ x: "-5rem", y: "5rem", opacity: 0, scale: 0.75 }}
               className="absolute bottom-6 left-6 pl-10 py-2 min-h-10 flex flex-row items-end justify-start z-1"
+              style={{ transformOrigin: "0% 100%" }}
               ref={setMenu}
             >
               <div className="absolute bottom-5 left-5 -translate-x-1/2 translate-y-1/2">
