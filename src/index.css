@@ -29,6 +29,8 @@ body,
   overscroll-behavior: none;
 
   background: #000011;
+  color: #ffffff;
+  font-family: "Kedebideri", sans-serif;
 }
 
 button:not(:disabled) {
