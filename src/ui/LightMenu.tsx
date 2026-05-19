@@ -6,6 +6,7 @@ import { CgArrowsShrinkH } from "react-icons/cg";
 import { TbMathIntegral } from "react-icons/tb";
 import { wavelengthToRGB } from "../util";
 import { IoAddSharp, IoCloseSharp } from "react-icons/io5";
+import WavelengthBar from "./WavelengthBar";
 
 type WavelengthsType = "POINTS" | "RANGE" | "FUNCTION";
 const wavelengthsTypes: WavelengthsType[] = ["POINTS", "RANGE", "FUNCTION"];
@@ -74,10 +75,10 @@ function Points({
             <div
               className="min-w-4 max-w-4 h-2 rounded-full"
               style={{
-                background: "rgb(" + rgb.join(",") + ")",
+                background: `rgb(${rgb.join(",")})`,
               }}
             ></div>
-            <div className="min-w-40 max-w-40">
+            <div className="min-w-40 max-w-40 flex flex-row items-center justify-center gap-0">
               <input
                 className="min-w-10 max-w-10 outline-none"
                 value={length}
@@ -87,6 +88,23 @@ function Points({
                 }}
                 type="number"
               />
+              <div className="relative min-w-30 max-w-30 flex flex-col items-center justify-center">
+                <WavelengthBar
+                  range={[350, 800]}
+                  className="absolute! w-full h-1 top-1/2 -translate-y-1/2 -z-1"
+                />
+                <input
+                  className="w-full outline-none bar"
+                  min={350}
+                  max={800}
+                  value={length}
+                  onChange={(e) => {
+                    lengths[i] = Math.round(e.target.valueAsNumber);
+                    update();
+                  }}
+                  type="range"
+                />
+              </div>
             </div>
             <input
               className="min-w-10 max-w-10 outline-none"
