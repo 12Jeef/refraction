@@ -36,7 +36,7 @@ export default function Dropdown<T>({
   return (
     <div className="relative text-sm" ref={ref}>
       <button
-        className="px-2 py-1 bg-white/25 rounded-lg flex flex-row items-center justify-center gap-1 min-w-30"
+        className="px-2 py-1 bg-white/25 rounded-lg flex flex-row items-center justify-center gap-1 min-w-30 backdrop-blur-lg"
         onClick={() => setOpen(!open)}
       >
         {serialize(selected)}
@@ -47,7 +47,7 @@ export default function Dropdown<T>({
             initial={{ scale: 0.75, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.75, opacity: 0 }}
-            className={`absolute ${direction === "DOWN" ? "top-full translate-y-1" : "bottom-full -translate-y-1"} w-full flex flex-col items-stretch justify-stretch bg-white/25 rounded-lg overflow-hidden`}
+            className={`absolute ${direction === "DOWN" ? "top-full translate-y-1" : "bottom-full -translate-y-1"} w-full flex flex-col items-stretch justify-stretch bg-white/25 rounded-lg overflow-hidden z-10 backdrop-blur-lg`}
             style={{
               transformOrigin: direction === "DOWN" ? "50% 0%" : "50% 100%",
             }}

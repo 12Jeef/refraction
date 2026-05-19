@@ -3,12 +3,9 @@ import {
   CircleGlass,
   ConcaveLensGlass,
   ConvexLensGlass,
-  defaultMaterial,
   Glass,
-  mirrorMaterial,
   PolygonGlass,
   RectangleGlass,
-  vacuumMaterial,
 } from "./engine/glass";
 import {
   DirectionalLight,
@@ -19,12 +16,8 @@ import {
 import type { vec2 } from "./types";
 import { AnimatePresence, motion } from "motion/react";
 import Render from "./Render";
-import Dropdown from "./ui/Dropdown";
-import {
-  HiCube,
-  HiOutlineCube,
-  HiOutlineCubeTransparent,
-} from "react-icons/hi";
+import GlassMenu from "./ui/GlassMenu";
+import LightMenu from "./ui/LightMenu";
 
 export default function App() {
   const glassesBase: Glass[] = useMemo(
@@ -163,7 +156,7 @@ export default function App() {
                   transition: { scale: { delay: 0.3 } },
                 }}
                 exit={{ scale: 0 }}
-                className="absolute bottom-0 left-0 rounded-3xl bg-white/15 pointer-events-none -z-1"
+                className="absolute bottom-0 left-0 rounded-3xl bg-white/15 pointer-events-none -z-1 backdrop-blur-lg"
               ></motion.div>
               <div
                 className="absolute bottom-0 left-0 w-10 h-10 cursor-pointer"
@@ -182,50 +175,16 @@ export default function App() {
                       className="mx-3 text-sm"
                     >
                       {selected instanceof Glass && (
-                        <>
-                          <div className="flex flex-col items-start justify-start">
-                            <div className="flex flex-row items-center justify-center gap-4">
-                              <div>Material</div>
-                              <Dropdown
-                                items={[
-                                  vacuumMaterial,
-                                  defaultMaterial,
-                                  mirrorMaterial,
-                                ]}
-                                selected={selected.material}
-                                direction="UP"
-                                set={(value) => {
-                                  selected.material = value;
-                                  setGlasses([...glasses]);
-                                }}
-                                serialize={(value) => {
-                                  if (!value) return "No Material";
-                                  if (value === vacuumMaterial)
-                                    return (
-                                      <>
-                                        <HiOutlineCubeTransparent className="min-w-4" />
-                                        <div className="w-full">Vacuum</div>
-                                      </>
-                                    );
-                                  if (value === defaultMaterial)
-                                    return (
-                                      <>
-                                        <HiOutlineCube className="min-w-4" />
-                                        <div className="w-full">Glass</div>
-                                      </>
-                                    );
-                                  if (value === mirrorMaterial)
-                                    return (
-                                      <>
-                                        <HiCube className="min-w-4" />
-                                        <div className="w-full">Mirror</div>
-                                      </>
-                                    );
-                                }}
-                              />
-                            </div>
-                          </div>
-                        </>
+                        <GlassMenu
+                          glass={selected}
+                          update={() => setGlasses([...glasses])}
+                        />
+                      )}
+                      {selected instanceof Light && (
+                        <LightMenu
+                          light={selected}
+                          update={() => setLights([...lights])}
+                        />
                       )}
                     </motion.div>
                   </>
