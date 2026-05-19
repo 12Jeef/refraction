@@ -60,6 +60,15 @@ input[type="range"]::-webkit-slider-thumb {
 input[type="range"]::-moz-range-thumb {
   cursor: pointer;
 }
+input[type="range"].multi {
+  pointer-events: none;
+}
+input[type="range"].multi::-webkit-slider-thumb {
+  pointer-events: all;
+}
+input[type="range"].multi::-moz-range-thumb {
+  pointer-events: all;
+}
 input[type="range"].knob::-webkit-slider-thumb {
   width: 0.5rem;
   height: 0.5rem;

@@ -57,7 +57,7 @@ function Points({
         >
           <IoAddSharp />
         </button>
-        <div className="min-w-40 max-w-40">Wavelength</div>
+        <div className="min-w-40 max-w-40">Wavelength (nm)</div>
         <div className="min-w-10 max-w-10">Amp</div>
         <div className="min-w-4 max-w-4"></div>
       </div>
@@ -136,6 +136,99 @@ function Points({
   );
 }
 
+function Range({
+  wavelengths,
+  set,
+}: {
+  wavelengths: Wavelengths;
+  set: (value: Wavelengths) => void;
+}) {
+  if (!("range" in wavelengths)) return <></>;
+  if (typeof wavelengths.amplitude !== "number") return <></>;
+  const [l, r] = wavelengths.range;
+  const lPercent = Math.max(0, Math.min(1, (l - 350) / (800 - 350)));
+  const rPercent = Math.max(0, Math.min(1, (r - 350) / (800 - 350)));
+  return (
+    <div className="flex flex-row items-center justify-start gap-2">
+      <input
+        className="min-w-10 max-w-10 outline-none text-right"
+        value={l}
+        onChange={(e) => {
+          wavelengths.range[0] = Math.round(e.target.valueAsNumber);
+          set(wavelengths);
+        }}
+        type="number"
+      />
+      <div className="relative min-w-50 max-w-50 flex flex-col items-center justify-center">
+        <WavelengthBar
+          range={[350, 800]}
+          className="absolute! w-full h-1 top-1/2 -translate-y-1/2 -z-1"
+        />
+        <div
+          className="absolute top-1/2 h-0.5 bg-white"
+          style={{
+            left: `${lPercent * 100}%`,
+            width: `${(rPercent - lPercent) * 100}%`,
+            transform: "translateY(-50%) translateY(-0.25rem)",
+          }}
+        ></div>
+        <div
+          className="absolute top-1/2 h-0.5 bg-white"
+          style={{
+            left: `${lPercent * 100}%`,
+            width: `${(rPercent - lPercent) * 100}%`,
+            transform: "translateY(-50%) translateY(0.25rem)",
+          }}
+        ></div>
+        <input
+          className="absolute top-1/2 -translate-y-1/2 w-full outline-none multi bar"
+          min={350}
+          max={800}
+          value={l}
+          onChange={(e) => {
+            wavelengths.range[0] = Math.round(e.target.valueAsNumber);
+            set(wavelengths);
+          }}
+          type="range"
+        />
+        <input
+          className="absolute top-1/2 -translate-y-1/2 w-full outline-none multi bar"
+          min={350}
+          max={800}
+          value={r}
+          onChange={(e) => {
+            wavelengths.range[1] = Math.round(e.target.valueAsNumber);
+            set(wavelengths);
+          }}
+          type="range"
+        />
+      </div>
+      <input
+        className="min-w-10 max-w-10 outline-none text-left"
+        value={r}
+        onChange={(e) => {
+          wavelengths.range[1] = Math.round(e.target.valueAsNumber);
+          set(wavelengths);
+        }}
+        type="number"
+      />
+      <input
+        className="min-w-10 max-w-10 outline-none"
+        value={wavelengths.amplitude}
+        onChange={(e) => {
+          wavelengths.amplitude = Math.max(
+            0,
+            Math.min(100, e.target.valueAsNumber),
+          );
+          set(wavelengths);
+        }}
+        step={0.01}
+        type="number"
+      />
+    </div>
+  );
+}
+
 export type LightMenuProps = { light: Light; update: () => void };
 
 export default function LightMenu({ light, update }: LightMenuProps) {
@@ -145,6 +238,15 @@ export default function LightMenu({ light, update }: LightMenuProps) {
     <div className="flex flex-col items-start justify-start gap-4">
       {type === "POINTS" && (
         <Points
+          wavelengths={light.wavelengths}
+          set={(wavelengths) => {
+            light.wavelengths = wavelengths;
+            update();
+          }}
+        />
+      )}
+      {type === "RANGE" && (
+        <Range
           wavelengths={light.wavelengths}
           set={(wavelengths) => {
             light.wavelengths = wavelengths;

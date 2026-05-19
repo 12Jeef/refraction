@@ -86,6 +86,7 @@ export default function App() {
 
   const [menuOpen, setMenuOpen] = useState(false);
   useEffect(() => {
+    if (selected) return;
     setMenuOpen(false);
   }, [selected]);
   const [menu, setMenu] = useState<HTMLDivElement | null>(null);
