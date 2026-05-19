@@ -63,11 +63,11 @@ export default function App() {
     () => [
       new PointLight({
         position: [600, 200],
-        wavelengths: { range: [400, 500], amplitude: 1 },
+        wavelengths: { range: [400, 700], amplitude: 1 },
       }),
       new DirectionalLight({
         position: [800, 200],
-        wavelengths: { range: [500, 600], amplitude: 1 },
+        wavelengths: { range: [400, 700], amplitude: 1 },
         angle: 0,
         angleSpread: Math.PI / 6,
       }),

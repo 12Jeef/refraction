@@ -44,6 +44,7 @@ export type DirectionalLightProps = LightProps & {
 
 export type Material = {
   refractiveIndex: number | ((wavelength: number) => number);
+  absorption?: (wavelength: number) => number;
 };
 
 export type GlassProps = {

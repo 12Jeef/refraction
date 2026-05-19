@@ -167,7 +167,7 @@ export const transitionRay = (
     typeof pastMaterial.refractiveIndex !== "number" ||
     typeof newMaterial.refractiveIndex !== "number";
   const rays =
-    multipleWavelengths && multipleRefractiveIndices
+    newMaterial.absorption || (multipleWavelengths && multipleRefractiveIndices)
       ? subdivideRay(ray, dwavelength)
       : [ray];
   const newRays: Ray[] = [];
@@ -189,8 +189,13 @@ export const transitionRay = (
       eta * ray.angle[1] - normalCoeff * normal[1],
     ];
     const R0 = ((n1 - n2) / (n1 + n2)) ** 2;
-    const R = R0 + (1 - R0) * (1 + incidentDotNormal) ** 5;
-    const T = 1 - R;
+    let R = R0 + (1 - R0) * (1 + incidentDotNormal) ** 5;
+    let T = 1 - R;
+    if (newMaterial.absorption) {
+      const coeff = newMaterial.absorption(meanWavelength(ray.wavelengths));
+      R *= coeff;
+      T *= coeff;
+    }
     if (R > 0.1) {
       const wavelengths = amplifyWavelengths(ray.wavelengths, R);
       const h = Math.round(
