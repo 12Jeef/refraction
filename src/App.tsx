@@ -18,6 +18,8 @@ import { AnimatePresence, motion } from "motion/react";
 import Render from "./Render";
 import GlassMenu from "./ui/GlassMenu";
 import LightMenu from "./ui/LightMenu";
+import { IoAddSharp } from "react-icons/io5";
+import AddMenu from "./ui/AddMenu";
 
 export default function App() {
   const glassesBase: Glass[] = useMemo(
@@ -84,11 +86,8 @@ export default function App() {
   const [lights, setLights] = useState(lightsBase);
   const [selected, setSelected] = useState<Glass | Light | null>(null);
 
+  const [menuShown, setMenuShown] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
-  useEffect(() => {
-    if (selected) return;
-    setMenuOpen(false);
-  }, [selected]);
   const [menu, setMenu] = useState<HTMLDivElement | null>(null);
   const [menuWidth, setMenuWidth] = useState(0);
   const [menuHeight, setMenuHeight] = useState(0);
@@ -118,81 +117,80 @@ export default function App() {
         setSelected={setSelected}
       />
       <AnimatePresence>
-        {selected && (
-          <>
-            <motion.div
-              initial={{ x: "-5rem", y: "5rem", opacity: 0, scale: 0.75 }}
-              animate={{ x: "0rem", y: "0rem", opacity: 1, scale: 1 }}
-              exit={{ x: "-5rem", y: "5rem", opacity: 0, scale: 0.75 }}
-              className="absolute bottom-6 left-6 pl-10 py-2 min-h-10 flex flex-row items-end justify-start z-1"
-              style={{ transformOrigin: "0% 100%" }}
-              ref={setMenu}
-            >
-              <div className="absolute bottom-5 left-5 -translate-x-1/2 translate-y-1/2">
-                <motion.div
-                  initial={{ x: "-3rem", y: "3rem" }}
-                  animate={{ x: "0rem", y: "0rem", transition: { delay: 0.3 } }}
-                  exit={{ x: "-3rem", y: "3rem" }}
-                  className="absolute -bottom-1.25 -left-1.5 -translate-x-1/2 translate-y-1/2 w-1 h-1 rounded-full bg-white"
-                ></motion.div>
-                <motion.div
-                  initial={{ x: "-3rem", y: "3rem" }}
-                  animate={{ x: "0rem", y: "0rem", transition: { delay: 0.2 } }}
-                  exit={{ x: "-3rem", y: "3rem" }}
-                  className="absolute -bottom-1.25 left-1.5 -translate-x-1/2 translate-y-1/2 w-1 h-1 rounded-full bg-white"
-                ></motion.div>
-                <motion.div
-                  initial={{ x: "-3rem", y: "3rem" }}
-                  animate={{ x: "0rem", y: "0rem", transition: { delay: 0.1 } }}
-                  exit={{ x: "-3rem", y: "3rem" }}
-                  className="absolute bottom-1.25 left-0 -translate-x-1/2 translate-y-1/2 w-1 h-1 rounded-full bg-white"
-                ></motion.div>
-              </div>
+        {menuShown && (
+          <motion.div
+            initial={{ x: "-5rem", y: "5rem", opacity: 0, scale: 0.75 }}
+            animate={{ x: "0rem", y: "0rem", opacity: 1, scale: 1 }}
+            exit={{ x: "-5rem", y: "5rem", opacity: 0, scale: 0.75 }}
+            className="absolute bottom-6 left-6 pl-10 py-2 min-h-10 flex flex-row items-end justify-start z-1"
+            style={{ transformOrigin: "0% 100%" }}
+            ref={setMenu}
+          >
+            <div className="absolute bottom-5 left-5 -translate-x-1/2 translate-y-1/2">
               <motion.div
-                initial={{ scale: 0 }}
-                animate={{
-                  scale: 1,
-                  width: menuWidth + "px",
-                  height: menuHeight + "px",
-                  transition: { scale: { delay: 0.3 } },
-                }}
-                exit={{ scale: 0 }}
-                className="absolute bottom-0 left-0 rounded-3xl bg-white/15 pointer-events-none -z-1 backdrop-blur-lg"
+                initial={{ x: "-3rem", y: "3rem" }}
+                animate={{ x: "0rem", y: "0rem", transition: { delay: 0.3 } }}
+                exit={{ x: "-3rem", y: "3rem" }}
+                className="absolute -bottom-1.25 -left-1.5 -translate-x-1/2 translate-y-1/2 w-1 h-1 rounded-full bg-white"
               ></motion.div>
-              <div
-                className="absolute bottom-0 left-0 w-10 h-10 cursor-pointer"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setMenuOpen(!menuOpen);
-                }}
-              ></div>
-              <AnimatePresence>
-                {menuOpen && (
-                  <>
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      className="mx-3 text-sm"
-                    >
-                      {selected instanceof Glass && (
-                        <GlassMenu
-                          glass={selected}
-                          update={() => setGlasses([...glasses])}
-                        />
-                      )}
-                      {selected instanceof Light && (
-                        <LightMenu
-                          light={selected}
-                          update={() => setLights([...lights])}
-                        />
-                      )}
-                    </motion.div>
-                  </>
-                )}
-              </AnimatePresence>
-            </motion.div>
-          </>
+              <motion.div
+                initial={{ x: "-3rem", y: "3rem" }}
+                animate={{ x: "0rem", y: "0rem", transition: { delay: 0.2 } }}
+                exit={{ x: "-3rem", y: "3rem" }}
+                className="absolute -bottom-1.25 left-1.5 -translate-x-1/2 translate-y-1/2 w-1 h-1 rounded-full bg-white"
+              ></motion.div>
+              <motion.div
+                initial={{ x: "-3rem", y: "3rem" }}
+                animate={{ x: "0rem", y: "0rem", transition: { delay: 0.1 } }}
+                exit={{ x: "-3rem", y: "3rem" }}
+                className="absolute bottom-1.25 left-0 -translate-x-1/2 translate-y-1/2 w-1 h-1 rounded-full bg-white"
+              ></motion.div>
+            </div>
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{
+                scale: 1,
+                width: menuWidth + "px",
+                height: menuHeight + "px",
+                transition: { scale: { delay: 0.3 } },
+              }}
+              exit={{ scale: 0 }}
+              className="absolute bottom-0 left-0 rounded-3xl bg-white/15 pointer-events-none -z-1 backdrop-blur-lg"
+            ></motion.div>
+            <div
+              className="absolute bottom-0 left-0 w-10 h-10 cursor-pointer"
+              onClick={(e) => {
+                e.stopPropagation();
+                setMenuOpen(!menuOpen);
+              }}
+            ></div>
+            <AnimatePresence>
+              {menuOpen && (
+                <>
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="mx-3 text-sm"
+                  >
+                    {selected instanceof Glass && (
+                      <GlassMenu
+                        glass={selected}
+                        update={() => setGlasses([...glasses])}
+                      />
+                    )}
+                    {selected instanceof Light && (
+                      <LightMenu
+                        light={selected}
+                        update={() => setLights([...lights])}
+                      />
+                    )}
+                    {!selected && <AddMenu />}
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>
