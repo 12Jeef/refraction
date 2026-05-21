@@ -1,93 +1,23 @@
 import { useEffect, useMemo, useState } from "react";
-import {
-  CircleGlass,
-  ConcaveLensGlass,
-  ConvexLensGlass,
-  Glass,
-  PolygonGlass,
-  RectangleGlass,
-} from "./engine/glass";
-import {
-  DirectionalLight,
-  Light,
-  PlaneLight,
-  PointLight,
-} from "./engine/lights";
-import type { vec2 } from "./types";
+import { Glass } from "./engine/glass";
+import { Light } from "./engine/lights";
 import { AnimatePresence, motion } from "motion/react";
 import Render from "./Render";
 import GlassMenu from "./ui/GlassMenu";
 import LightMenu from "./ui/LightMenu";
 import AddMenu from "./ui/AddMenu";
 import type { Knobby } from "./engine/knob";
+import { IoTriangleSharp } from "react-icons/io5";
 
 export default function App() {
-  const glassesBase: Glass[] = useMemo(
-    () => [
-      // new CircleGlass({
-      //   center: [200, 400],
-      //   radius: 50,
-      // }),
-      // new ConvexLensGlass({
-      //   center: [500, 400],
-      //   thickness: 25,
-      //   length: 100,
-      //   angle: 0,
-      // }),
-      // new ConcaveLensGlass({
-      //   center: [1100, 400],
-      //   thickness: 25,
-      //   length: 100,
-      //   angle: 0,
-      // }),
-      // new PolygonGlass({
-      //   center: [800, 400],
-      //   vertices: Array.from(new Array(3).keys()).map(
-      //     (i) =>
-      //       [
-      //         50 * Math.cos(-Math.PI / 2 + i * ((2 * Math.PI) / 3)),
-      //         50 * Math.sin(-Math.PI / 2 + i * ((2 * Math.PI) / 3)),
-      //       ] as vec2,
-      //   ),
-      //   angle: 0,
-      //   knobAngleOffset: -Math.PI / 2,
-      // }),
-      // new RectangleGlass({
-      //   center: [1400, 400],
-      //   width: 50,
-      //   height: 100,
-      //   angle: Math.PI / 6,
-      // }),
-    ],
-    [],
-  );
-  const lightsBase: Light[] = useMemo(
-    () => [
-      // new PointLight({
-      //   position: [600, 200],
-      //   wavelengths: { range: [400, 700], amplitude: 1 },
-      // }),
-      // new DirectionalLight({
-      //   position: [800, 200],
-      //   wavelengths: { range: [400, 700], amplitude: 1 },
-      //   angle: 0,
-      //   angleSpread: Math.PI / 6,
-      // }),
-      // new PlaneLight({
-      //   position: [1000, 200],
-      //   wavelengths: { range: [400, 700], amplitude: 1 },
-      //   length: 100,
-      //   angle: 0,
-      // }),
-    ],
-    [],
-  );
+  const glassesBase: Glass[] = useMemo(() => [], []);
+  const lightsBase: Light[] = useMemo(() => [], []);
   const [glasses, setGlasses] = useState(glassesBase);
   const [lights, setLights] = useState(lightsBase);
   const [selected, setSelected] = useState<Knobby | null>(null);
   const [adding, setAdding] = useState<Knobby | null>(null);
 
-  const [menuShown, setMenuShown] = useState(true);
+  const [menuShown, setMenuShown] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuLast, setMenuLast] = useState<Knobby | null>(null);
   useEffect(() => {
@@ -127,6 +57,11 @@ export default function App() {
       clearInterval(interval);
     };
   }, [menuOpen, menu]);
+  useEffect(() => {
+    setMenuShown(false);
+    const timeout = setTimeout(() => setMenuShown(true), 1e3);
+    return () => clearTimeout(timeout);
+  }, []);
 
   return (
     <div className="absolute top-0 left-0 bottom-0 right-0 overflow-hidden">
@@ -230,6 +165,19 @@ export default function App() {
           </motion.div>
         )}
       </AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0.5 }}
+        animate={{
+          opacity: 0,
+          filter: "blur(5rem)",
+          transition: { delay: 1, duration: 10 },
+        }}
+        className="absolute top-1/2 left-1/2 -translate-1/2 pointer-events-none text-9xl tracking-widest flex flex-row items-center justify-center"
+      >
+        <span>REFR</span>
+        <IoTriangleSharp className="translate-y-2 w-[0.75em] h-[0.75em]" />
+        <span>CTION</span>
+      </motion.div>
     </div>
   );
 }

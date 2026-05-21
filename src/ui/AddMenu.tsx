@@ -61,7 +61,19 @@ const defaultGlasses: { render: Glass; factory: () => Glass }[] = [
       ),
       angle: 0,
     }),
-    factory: () => new PolygonGlass({ center: [0, 0], vertices: [], angle: 0 }),
+    factory: () =>
+      new PolygonGlass({
+        center: [0, 0],
+        vertices: Array.from(new Array(3).keys()).map(
+          (i) =>
+            [
+              50 * Math.cos(-Math.PI / 2 + i * ((2 * Math.PI) / 3)),
+              50 * Math.sin(-Math.PI / 2 + i * ((2 * Math.PI) / 3)),
+            ] as vec2,
+        ),
+        knobAngleOffset: Math.PI / 6,
+        angle: 0,
+      }),
   },
   {
     render: new RectangleGlass({
