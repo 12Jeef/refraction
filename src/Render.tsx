@@ -8,7 +8,9 @@ import { lerp } from "./util";
 
 export type RenderProps = {
   glasses: Glass[];
+  setGlasses: (glasses: Glass[]) => void;
   lights: Light[];
+  setLights: (lights: Light[]) => void;
   selected: Knobby | null;
   setSelected: (selected: Knobby | null) => void;
   adding: Knobby | null;
@@ -17,7 +19,9 @@ export type RenderProps = {
 
 export default function Render({
   glasses,
+  setGlasses,
   lights,
+  setLights,
   selected,
   setSelected,
   adding,
@@ -290,15 +294,30 @@ export default function Render({
       for (const knob of dragged.knobs) knob.drag(mouse);
       simulateLightsRequested = true;
     };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setSelected(null);
+        clearAdding();
+      }
+      if (e.key === "Backspace" || e.key === "Delete") {
+        if (selected) {
+          setGlasses(glasses.filter((g) => g !== selected));
+          setLights(lights.filter((l) => l !== selected));
+          setSelected(null);
+        }
+      }
+    };
     elem.addEventListener("mousedown", onMouseDown);
     elem.addEventListener("mouseup", onMouseUp);
     elem.addEventListener("mousemove", onMouseMove);
+    document.body.addEventListener("keydown", onKeyDown);
     return () => {
       observer.disconnect();
       window.cancelAnimationFrame(frame);
       elem.removeEventListener("mousedown", onMouseDown);
       elem.removeEventListener("mouseup", onMouseUp);
       elem.removeEventListener("mousemove", onMouseMove);
+      document.body.removeEventListener("keydown", onKeyDown);
     };
   }, [
     ref,

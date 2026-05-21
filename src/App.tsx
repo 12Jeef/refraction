@@ -67,7 +67,9 @@ export default function App() {
     <div className="absolute top-0 left-0 bottom-0 right-0 overflow-hidden">
       <Render
         glasses={glasses}
+        setGlasses={setGlasses}
         lights={lights}
+        setLights={setLights}
         selected={selected}
         setSelected={setSelected}
         adding={adding}
@@ -82,6 +84,9 @@ export default function App() {
             className="absolute bottom-6 left-6 pl-10 py-2 min-h-10 flex flex-row items-end justify-start z-1"
             style={{ transformOrigin: "0% 100%" }}
             ref={setMenu}
+            onKeyDown={(e) => {
+              e.stopPropagation();
+            }}
           >
             <div className="absolute bottom-5 left-5 -translate-x-1/2 translate-y-1/2">
               <motion.div

@@ -138,7 +138,7 @@ function Points({
   );
 }
 
-function Range({
+function RangeSelector({
   wavelengths,
   set,
 }: {
@@ -146,12 +146,11 @@ function Range({
   set: (value: Wavelengths) => void;
 }) {
   if (!("range" in wavelengths)) return <></>;
-  if (typeof wavelengths.amplitude !== "number") return <></>;
   const [l, r] = wavelengths.range;
   const lPercent = Math.max(0, Math.min(1, (l - 350) / (800 - 350)));
   const rPercent = Math.max(0, Math.min(1, (r - 350) / (800 - 350)));
   return (
-    <div className="flex flex-row items-center justify-start gap-2">
+    <>
       <input
         className="min-w-10 max-w-10 outline-none text-right"
         value={l}
@@ -214,6 +213,22 @@ function Range({
         }}
         type="number"
       />
+    </>
+  );
+}
+
+function Range({
+  wavelengths,
+  set,
+}: {
+  wavelengths: Wavelengths;
+  set: (value: Wavelengths) => void;
+}) {
+  if (!("range" in wavelengths)) return <></>;
+  if (typeof wavelengths.amplitude !== "number") return <></>;
+  return (
+    <div className="flex flex-row items-center justify-start gap-2">
+      <RangeSelector wavelengths={wavelengths} set={set} />
       <input
         className="min-w-10 max-w-10 outline-none"
         value={wavelengths.amplitude}
@@ -227,6 +242,22 @@ function Range({
         step={0.01}
         type="number"
       />
+    </div>
+  );
+}
+
+function Function({
+  wavelengths,
+  set,
+}: {
+  wavelengths: Wavelengths;
+  set: (value: Wavelengths) => void;
+}) {
+  if (!("range" in wavelengths)) return <></>;
+  if (typeof wavelengths.amplitude === "number") return <></>;
+  return (
+    <div className="flex flex-row items-center justify-start gap-2">
+      <RangeSelector wavelengths={wavelengths} set={set} />
     </div>
   );
 }
@@ -249,6 +280,15 @@ export default function LightMenu({ light, update }: LightMenuProps) {
       )}
       {type === "RANGE" && (
         <Range
+          wavelengths={light.wavelengths}
+          set={(wavelengths) => {
+            light.wavelengths = wavelengths;
+            update();
+          }}
+        />
+      )}
+      {type === "FUNCTION" && (
+        <Function
           wavelengths={light.wavelengths}
           set={(wavelengths) => {
             light.wavelengths = wavelengths;
