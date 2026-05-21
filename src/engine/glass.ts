@@ -10,7 +10,13 @@ import type {
   RectangleGlassProps,
 } from "../types";
 import { dot, lerp, lineDistance, projComp } from "../util";
-import { drawBarPath, drawPlusPath, drawTrianglePath, Knob } from "./knob";
+import {
+  drawBarPath,
+  drawPlusPath,
+  drawTrianglePath,
+  Knob,
+  Knobby,
+} from "./knob";
 
 export const vacuumMaterial: Material = {
   refractiveIndex: 1,
@@ -22,14 +28,13 @@ export const mirrorMaterial: Material = {
   refractiveIndex: 1e9,
 };
 
-export abstract class Glass {
+export abstract class Glass extends Knobby {
   public material: Material;
-  public readonly knobs: Knob[];
   public value: number;
 
   public constructor({ material }: GlassProps) {
+    super();
     this.material = material ?? defaultMaterial;
-    this.knobs = [];
     this.value = 0;
   }
 
@@ -48,38 +53,41 @@ export class CircleGlass extends Glass {
   public radius: number;
   private angle: number;
 
+  public readonly centerKnob: Knob;
+  public readonly radiusKnob: Knob;
+
   public constructor({ center, radius, ...glassProps }: CircleGlassProps) {
     super(glassProps);
     this.center = center;
     this.radius = radius;
     this.angle = 0;
 
-    this.knobs.push(
-      new Knob(
-        (p) => (this.center = p),
-        () => this.center,
-        drawPlusPath(() => this.center),
-      ),
-      new Knob(
-        (p) => {
-          const dx = p[0] - this.center[0];
-          const dy = p[1] - this.center[1];
-          this.radius = Math.max(10, Math.hypot(dx, dy));
-          this.angle = Math.atan2(dy, dx);
-        },
+    this.centerKnob = new Knob(
+      (p) => (this.center = p),
+      () => this.center,
+      drawPlusPath(() => this.center),
+    );
+    this.radiusKnob = new Knob(
+      (p) => {
+        const dx = p[0] - this.center[0];
+        const dy = p[1] - this.center[1];
+        this.radius = Math.max(10, Math.hypot(dx, dy));
+        this.angle = Math.atan2(dy, dx);
+      },
+      () => [
+        this.center[0] + Math.cos(this.angle) * this.radius,
+        this.center[1] + Math.sin(this.angle) * this.radius,
+      ],
+      drawTrianglePath(
         () => [
-          this.center[0] + Math.cos(this.angle) * this.radius,
-          this.center[1] + Math.sin(this.angle) * this.radius,
+          this.center[0] + Math.cos(this.angle) * (this.radius + 1),
+          this.center[1] + Math.sin(this.angle) * (this.radius + 1),
         ],
-        drawTrianglePath(
-          () => [
-            this.center[0] + Math.cos(this.angle) * (this.radius + 1),
-            this.center[1] + Math.sin(this.angle) * (this.radius + 1),
-          ],
-          () => this.angle,
-        ),
+        () => this.angle,
       ),
     );
+
+    this.knobs.push(this.centerKnob, this.radiusKnob);
   }
 
   protected sdfInternal(position: vec2): SDFOutput {
@@ -93,6 +101,10 @@ export class CircleGlass extends Glass {
   public path(ctx: CanvasRenderingContext2D): void {
     ctx.arc(...this.center, this.radius, 0, 2 * Math.PI);
   }
+
+  public getAddKnobOrder(): Knob[][] {
+    return [[this.centerKnob], [this.radiusKnob]];
+  }
 }
 
 export abstract class LensGlass extends Glass {
@@ -101,6 +113,11 @@ export abstract class LensGlass extends Glass {
   public length: number;
   public angle: number;
   private distance: number;
+
+  public readonly centerKnob: Knob;
+  public readonly thicknessKnob: Knob;
+  public readonly lengthKnob: Knob;
+  public readonly angleKnob: Knob;
 
   public constructor({
     center,
@@ -132,73 +149,66 @@ export abstract class LensGlass extends Glass {
       }
     };
 
-    this.knobs.push(
-      new Knob(
-        (p) => (this.center = p),
-        () => this.center,
-        drawPlusPath(() => this.center),
-      ),
-      new Knob(
-        (p) => onDrag(p, true, false),
+    this.centerKnob = new Knob(
+      (p) => (this.center = p),
+      () => this.center,
+      drawPlusPath(() => this.center),
+    );
+    this.thicknessKnob = new Knob(
+      (p) => onDrag(p, true, false),
+      () => {
+        const heading = this.heading;
+        return [
+          this.center[0] + (this.thickness / 2) * heading[0],
+          this.center[1] + (this.thickness / 2) * heading[1],
+        ];
+      },
+      drawTrianglePath(
         () => {
           const heading = this.heading;
           return [
-            this.center[0] + (this.thickness / 2) * heading[0],
-            this.center[1] + (this.thickness / 2) * heading[1],
+            this.center[0] + (this.thickness / 2 + 1) * heading[0],
+            this.center[1] + (this.thickness / 2 + 1) * heading[1],
           ];
         },
-        drawTrianglePath(
-          () => {
-            const heading = this.heading;
-            return [
-              this.center[0] + (this.thickness / 2 + 1) * heading[0],
-              this.center[1] + (this.thickness / 2 + 1) * heading[1],
-            ];
-          },
-          () => this.angle,
-        ),
+        () => this.angle,
       ),
-      new Knob(
-        (p) => onDrag(p, false, true),
+    );
+    this.lengthKnob = new Knob(
+      (p) => onDrag(p, false, true),
+      () => {
+        const heading = this.heading;
+        return [
+          this.center[0] + (this.length / 2) * heading[1],
+          this.center[1] - (this.length / 2) * heading[0],
+        ];
+      },
+      drawTrianglePath(
         () => {
           const heading = this.heading;
           return [
-            this.center[0] + (this.length / 2) * heading[1],
-            this.center[1] - (this.length / 2) * heading[0],
+            this.center[0] + (this.length / 2 + 1) * heading[1],
+            this.center[1] - (this.length / 2 + 1) * heading[0],
           ];
         },
-        drawTrianglePath(
-          () => {
-            const heading = this.heading;
-            return [
-              this.center[0] + (this.length / 2 + 1) * heading[1],
-              this.center[1] - (this.length / 2 + 1) * heading[0],
-            ];
-          },
-          () => this.angle - Math.PI / 2,
-        ),
+        () => this.angle - Math.PI / 2,
       ),
-      // new Knob(
-      //   (p) => onDrag(p, true, true),
-      //   () => {
-      //     const heading = this.heading;
-      //     return [
-      //       this.center[0] +
-      //         (this.thickness / 2) * heading[0] +
-      //         (this.length / 2) * heading[1],
-      //       this.center[1] +
-      //         (this.thickness / 2) * heading[1] -
-      //         (this.length / 2) * heading[0],
-      //     ];
-      //   },
-      // ),
-      new Knob(
-        (p) => {
-          const dx = p[0] - this.center[0];
-          const dy = p[1] - this.center[1];
-          this.angle = Math.atan2(dy, dx);
-          this.distance = Math.hypot(dx, dy);
-        },
+    );
+    this.angleKnob = new Knob(
+      (p) => {
+        const dx = p[0] - this.center[0];
+        const dy = p[1] - this.center[1];
+        this.angle = Math.atan2(dy, dx);
+        this.distance = Math.hypot(dx, dy);
+      },
+      () => {
+        const heading = this.heading;
+        return [
+          this.center[0] + this.distance * heading[0],
+          this.center[1] + this.distance * heading[1],
+        ];
+      },
+      drawBarPath(
         () => {
           const heading = this.heading;
           return [
@@ -206,17 +216,15 @@ export abstract class LensGlass extends Glass {
             this.center[1] + this.distance * heading[1],
           ];
         },
-        drawBarPath(
-          () => {
-            const heading = this.heading;
-            return [
-              this.center[0] + this.distance * heading[0],
-              this.center[1] + this.distance * heading[1],
-            ];
-          },
-          () => this.angle,
-        ),
+        () => this.angle,
       ),
+    );
+
+    this.knobs.push(
+      this.centerKnob,
+      this.thicknessKnob,
+      this.lengthKnob,
+      this.angleKnob,
     );
   }
 
@@ -239,6 +247,15 @@ export abstract class LensGlass extends Glass {
   public update(): void {
     super.update();
     this.distance = lerp(this.distance, this.idealDistance, 0.1);
+  }
+
+  public getAddKnobOrder(): Knob[][] {
+    return [
+      [this.centerKnob],
+      [this.angleKnob],
+      [this.lengthKnob],
+      [this.thicknessKnob],
+    ];
   }
 }
 
@@ -374,6 +391,11 @@ export class RectangleGlass extends Glass {
   public angle: number;
   private distance: number;
 
+  public readonly centerKnob: Knob;
+  public readonly widthKnob: Knob;
+  public readonly heightKnob: Knob;
+  public readonly angleKnob: Knob;
+
   public constructor({
     center,
     width,
@@ -397,59 +419,66 @@ export class RectangleGlass extends Glass {
       if (setHeight) this.height = Math.max(20, Math.hypot(...perpVec) * 2);
     };
 
-    this.knobs.push(
-      new Knob(
-        (p) => (this.center = p),
-        () => this.center,
-        drawPlusPath(() => this.center),
-      ),
-      new Knob(
-        (p) => onDrag(p, true, false),
+    this.centerKnob = new Knob(
+      (p) => (this.center = p),
+      () => this.center,
+      drawPlusPath(() => this.center),
+    );
+    this.widthKnob = new Knob(
+      (p) => onDrag(p, true, false),
+      () => {
+        const heading = [Math.cos(this.angle), Math.sin(this.angle)];
+        return [
+          this.center[0] + (this.width / 2) * heading[0],
+          this.center[1] + (this.width / 2) * heading[1],
+        ];
+      },
+      drawTrianglePath(
         () => {
           const heading = [Math.cos(this.angle), Math.sin(this.angle)];
           return [
-            this.center[0] + (this.width / 2) * heading[0],
-            this.center[1] + (this.width / 2) * heading[1],
+            this.center[0] + (this.width / 2 + 1) * heading[0],
+            this.center[1] + (this.width / 2 + 1) * heading[1],
           ];
         },
-        drawTrianglePath(
-          () => {
-            const heading = [Math.cos(this.angle), Math.sin(this.angle)];
-            return [
-              this.center[0] + (this.width / 2 + 1) * heading[0],
-              this.center[1] + (this.width / 2 + 1) * heading[1],
-            ];
-          },
-          () => this.angle,
-        ),
+        () => this.angle,
       ),
-      new Knob(
-        (p) => onDrag(p, false, true),
+    );
+    this.heightKnob = new Knob(
+      (p) => onDrag(p, false, true),
+      () => {
+        const heading = [Math.cos(this.angle), Math.sin(this.angle)];
+        return [
+          this.center[0] + (this.height / 2) * heading[1],
+          this.center[1] - (this.height / 2) * heading[0],
+        ];
+      },
+      drawTrianglePath(
         () => {
           const heading = [Math.cos(this.angle), Math.sin(this.angle)];
           return [
-            this.center[0] + (this.height / 2) * heading[1],
-            this.center[1] - (this.height / 2) * heading[0],
+            this.center[0] + (this.height / 2 + 1) * heading[1],
+            this.center[1] - (this.height / 2 + 1) * heading[0],
           ];
         },
-        drawTrianglePath(
-          () => {
-            const heading = [Math.cos(this.angle), Math.sin(this.angle)];
-            return [
-              this.center[0] + (this.height / 2 + 1) * heading[1],
-              this.center[1] - (this.height / 2 + 1) * heading[0],
-            ];
-          },
-          () => this.angle - Math.PI / 2,
-        ),
+        () => this.angle - Math.PI / 2,
       ),
-      new Knob(
-        (p) => {
-          const dx = p[0] - this.center[0];
-          const dy = p[1] - this.center[1];
-          this.angle = Math.atan2(dy, dx);
-          this.distance = Math.hypot(dx, dy);
-        },
+    );
+    this.angleKnob = new Knob(
+      (p) => {
+        const dx = p[0] - this.center[0];
+        const dy = p[1] - this.center[1];
+        this.angle = Math.atan2(dy, dx);
+        this.distance = Math.hypot(dx, dy);
+      },
+      () => {
+        const heading = [Math.cos(this.angle), Math.sin(this.angle)];
+        return [
+          this.center[0] + this.distance * heading[0],
+          this.center[1] + this.distance * heading[1],
+        ];
+      },
+      drawBarPath(
         () => {
           const heading = [Math.cos(this.angle), Math.sin(this.angle)];
           return [
@@ -457,17 +486,15 @@ export class RectangleGlass extends Glass {
             this.center[1] + this.distance * heading[1],
           ];
         },
-        drawBarPath(
-          () => {
-            const heading = [Math.cos(this.angle), Math.sin(this.angle)];
-            return [
-              this.center[0] + this.distance * heading[0],
-              this.center[1] + this.distance * heading[1],
-            ];
-          },
-          () => this.angle,
-        ),
+        () => this.angle,
       ),
+    );
+
+    this.knobs.push(
+      this.centerKnob,
+      this.widthKnob,
+      this.heightKnob,
+      this.angleKnob,
     );
   }
 
@@ -531,6 +558,15 @@ export class RectangleGlass extends Glass {
 
     this.distance = lerp(this.distance, this.idealDistance, 0.1);
   }
+
+  public getAddKnobOrder(): Knob[][] {
+    return [
+      [this.centerKnob],
+      [this.angleKnob],
+      [this.heightKnob],
+      [this.widthKnob],
+    ];
+  }
 }
 
 export class PolygonGlass extends Glass {
@@ -539,6 +575,9 @@ export class PolygonGlass extends Glass {
   public angle: number;
   public knobAngleOffset: number;
   private distance: number;
+
+  public readonly centerKnob: Knob;
+  public readonly angleKnob: Knob;
 
   public constructor({
     center,
@@ -554,19 +593,29 @@ export class PolygonGlass extends Glass {
     this.knobAngleOffset = knobAngleOffset;
     this.distance = this.idealDistance;
 
-    this.knobs.push(
-      new Knob(
-        (p) => (this.center = p),
-        () => this.center,
-        drawPlusPath(() => this.center),
-      ),
-      new Knob(
-        (p) => {
-          const dx = p[0] - this.center[0];
-          const dy = p[1] - this.center[1];
-          this.angle = Math.atan2(dy, dx) - this.knobAngleOffset;
-          this.distance = Math.hypot(dx, dy);
-        },
+    this.centerKnob = new Knob(
+      (p) => (this.center = p),
+      () => this.center,
+      drawPlusPath(() => this.center),
+    );
+    this.angleKnob = new Knob(
+      (p) => {
+        const dx = p[0] - this.center[0];
+        const dy = p[1] - this.center[1];
+        this.angle = Math.atan2(dy, dx) - this.knobAngleOffset;
+        this.distance = Math.hypot(dx, dy);
+      },
+      () => {
+        const heading = [
+          Math.cos(this.angle + this.knobAngleOffset),
+          Math.sin(this.angle + this.knobAngleOffset),
+        ];
+        return [
+          this.center[0] + this.distance * heading[0],
+          this.center[1] + this.distance * heading[1],
+        ];
+      },
+      drawBarPath(
         () => {
           const heading = [
             Math.cos(this.angle + this.knobAngleOffset),
@@ -577,21 +626,11 @@ export class PolygonGlass extends Glass {
             this.center[1] + this.distance * heading[1],
           ];
         },
-        drawBarPath(
-          () => {
-            const heading = [
-              Math.cos(this.angle + this.knobAngleOffset),
-              Math.sin(this.angle + this.knobAngleOffset),
-            ];
-            return [
-              this.center[0] + this.distance * heading[0],
-              this.center[1] + this.distance * heading[1],
-            ];
-          },
-          () => this.angle + this.knobAngleOffset,
-        ),
+        () => this.angle + this.knobAngleOffset,
       ),
     );
+
+    this.knobs.push(this.centerKnob, this.angleKnob);
   }
 
   private get idealDistance(): number {
@@ -645,5 +684,9 @@ export class PolygonGlass extends Glass {
     super.update();
 
     this.distance = lerp(this.distance, this.idealDistance, 0.1);
+  }
+
+  public getAddKnobOrder(): Knob[][] {
+    return [[this.centerKnob], [this.angleKnob]];
   }
 }

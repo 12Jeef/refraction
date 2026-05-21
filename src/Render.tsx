@@ -1,16 +1,18 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Glass } from "./engine/glass";
 import type { Light } from "./engine/lights";
 import type { SimulationParams, vec2 } from "./types";
 import { simulateRays } from "./engine/sim";
-import type { Knob } from "./engine/knob";
+import type { Knob, Knobby } from "./engine/knob";
 import { lerp } from "./util";
 
 export type RenderProps = {
   glasses: Glass[];
   lights: Light[];
-  selected: Glass | Light | null;
-  setSelected: (selected: Glass | Light | null) => void;
+  selected: Knobby | null;
+  setSelected: (selected: Knobby | null) => void;
+  adding: Knobby | null;
+  clearAdding: () => void;
 };
 
 export default function Render({
@@ -18,13 +20,15 @@ export default function Render({
   lights,
   selected,
   setSelected,
+  adding,
+  clearAdding,
 }: RenderProps) {
   const ref = useRef<HTMLDivElement>(null);
   const lightCanvasRef = useRef<HTMLCanvasElement>(null);
   const glassCanvasRef = useRef<HTMLCanvasElement>(null);
   const knobCanvasRef = useRef<HTMLCanvasElement>(null);
 
-  const selectedRef = useRef<Glass | Light | null>(null);
+  const selectedRef = useRef<Knobby | null>(null);
   selectedRef.current = selected;
 
   const renderGlassesAndLights = useMemo(
@@ -117,23 +121,35 @@ export default function Render({
     [lightCanvasRef, glasses, lights],
   );
 
+  const [addKnobI, setAddKnobI] = useState(0);
+  useEffect(() => {
+    setAddKnobI(0);
+    if (adding) setSelected(adding);
+  }, [adding]);
   useEffect(() => {
     const elem = ref.current;
     if (!elem) return;
+    const knobOrder = adding ? adding.getAddKnobOrder() : [];
+    if (adding && addKnobI >= knobOrder.length) {
+      clearAdding();
+      return;
+    }
+    let dragged: { thing: Knobby; knobs: Knob[] } | null = adding
+      ? { thing: adding, knobs: knobOrder[addKnobI] }
+      : null;
     const observer = new ResizeObserver(() => (simulateLightsRequested = true));
     observer.observe(elem);
-    let dragged: { thing: Glass | Light; knob: Knob | null } | null = null;
     const findHovered = (
       pos: vec2,
-    ): { thing: Glass | Light; knob: Knob | null } | null => {
+    ): { thing: Knobby; knobs: Knob[] } | null => {
       for (const glass of glasses) {
         const sdf = glass.sdf(pos);
         for (const knob of glass.knobs) {
           const knobPos = knob.position;
           const d = Math.hypot(pos[0] - knobPos[0], pos[1] - knobPos[1]);
-          if (d <= 5) return { thing: glass, knob };
+          if (d <= 5) return { thing: glass, knobs: [knob] };
         }
-        if (sdf.distance < 0) return { thing: glass, knob: null };
+        if (sdf.distance < 0) return { thing: glass, knobs: [] };
       }
       let nearDistance = Infinity;
       let nearLight: Light | null = null;
@@ -142,7 +158,7 @@ export default function Render({
         for (const knob of light.knobs) {
           const knobPos = knob.position;
           const d = Math.hypot(pos[0] - knobPos[0], pos[1] - knobPos[1]);
-          if (d <= 5) return { thing: light, knob };
+          if (d <= 5) return { thing: light, knobs: [knob] };
           knobNearDistance = Math.min(knobNearDistance, d);
         }
         if (knobNearDistance < nearDistance) {
@@ -151,7 +167,7 @@ export default function Render({
         }
       }
       if (nearDistance < 40 && nearLight)
-        return { thing: nearLight, knob: null };
+        return { thing: nearLight, knobs: [] };
       return null;
     };
     const stepKnob = (
@@ -196,7 +212,7 @@ export default function Render({
               knob,
               i,
               glass === selectedRef.current || glass === dragged.thing,
-              knob === dragged.knob ? 3 : 0,
+              dragged.knobs.includes(knob) ? 3 : 0,
             );
           }
         for (const light of lights)
@@ -206,7 +222,7 @@ export default function Render({
               knob,
               i,
               light === selectedRef.current || light === dragged.thing,
-              knob === dragged.knob ? 3 : 0,
+              dragged.knobs.includes(knob) ? 3 : 0,
             );
           }
       } else {
@@ -221,7 +237,7 @@ export default function Render({
                 knob,
                 i,
                 glass === selectedRef.current || glass === hovered.thing,
-                knob === hovered.knob ? 2 : 1,
+                hovered.knobs.includes(knob) ? 2 : 1,
               );
             }
           for (const light of lights)
@@ -231,7 +247,7 @@ export default function Render({
                 knob,
                 i,
                 light === selectedRef.current || light === hovered.thing,
-                knob === hovered.knob ? 2 : 1,
+                hovered.knobs.includes(knob) ? 2 : 1,
               );
             }
         } else {
@@ -254,20 +270,24 @@ export default function Render({
     };
     update();
     const onMouseDown = (e: MouseEvent) => {
+      if (adding) {
+        setAddKnobI(addKnobI + 1);
+        return;
+      }
       mouse = [e.offsetX, e.offsetY];
       dragged = findHovered(mouse);
       setSelected(dragged?.thing ?? null);
-      if (!dragged?.knob) dragged = null;
+      if ((dragged?.knobs.length ?? 0) <= 0) dragged = null;
     };
     const onMouseUp = (e: MouseEvent) => {
+      if (adding) return;
       if (!dragged) return;
       dragged = null;
     };
     const onMouseMove = (e: MouseEvent) => {
       mouse = [e.offsetX, e.offsetY];
       if (!dragged) return;
-      if (!dragged.knob) return;
-      dragged.knob.drag(mouse);
+      for (const knob of dragged.knobs) knob.drag(mouse);
       simulateLightsRequested = true;
     };
     elem.addEventListener("mousedown", onMouseDown);
@@ -287,6 +307,8 @@ export default function Render({
     glasses,
     lights,
     selectedRef,
+    adding,
+    addKnobI,
   ]);
 
   return (

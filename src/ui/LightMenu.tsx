@@ -8,17 +8,19 @@ import { wavelengthToRGB } from "../util";
 import { IoAddSharp, IoCloseSharp } from "react-icons/io5";
 import WavelengthBar from "./WavelengthBar";
 
-type WavelengthsType = "POINTS" | "RANGE" | "FUNCTION";
+export type WavelengthsType = "POINTS" | "RANGE" | "FUNCTION";
 const wavelengthsTypes: WavelengthsType[] = ["POINTS", "RANGE", "FUNCTION"];
 
-const getWavelengthsType = (wavelengths: Wavelengths): WavelengthsType => {
+export const getWavelengthsType = (
+  wavelengths: Wavelengths,
+): WavelengthsType => {
   if ("length" in wavelengths) return "POINTS";
   if ("lengths" in wavelengths) return "POINTS";
   if (typeof wavelengths.amplitude === "number") return "RANGE";
   return "FUNCTION";
 };
 
-const fromWavelengthsType = (type: WavelengthsType): Wavelengths => {
+export const fromWavelengthsType = (type: WavelengthsType): Wavelengths => {
   if (type === "POINTS") return { length: 460, amplitude: 1 };
   if (type === "RANGE") return { range: [400, 700], amplitude: 1 };
   return { range: [400, 700], amplitude: () => 1 };

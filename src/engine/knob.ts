@@ -126,3 +126,13 @@ export class Knob {
     else ctx.arc(...this.position, 3 * this.scale, 0, 2 * Math.PI);
   }
 }
+
+export abstract class Knobby {
+  public readonly knobs: Knob[];
+
+  public constructor() {
+    this.knobs = [];
+  }
+
+  public abstract getAddKnobOrder(): Knob[][];
+}

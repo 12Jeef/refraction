@@ -18,76 +18,96 @@ import { AnimatePresence, motion } from "motion/react";
 import Render from "./Render";
 import GlassMenu from "./ui/GlassMenu";
 import LightMenu from "./ui/LightMenu";
-import { IoAddSharp } from "react-icons/io5";
 import AddMenu from "./ui/AddMenu";
+import type { Knobby } from "./engine/knob";
 
 export default function App() {
   const glassesBase: Glass[] = useMemo(
     () => [
-      new CircleGlass({
-        center: [200, 400],
-        radius: 50,
-      }),
-      new ConvexLensGlass({
-        center: [500, 400],
-        thickness: 25,
-        length: 100,
-        angle: 0,
-      }),
-      new ConcaveLensGlass({
-        center: [1100, 400],
-        thickness: 25,
-        length: 100,
-        angle: 0,
-      }),
-      new PolygonGlass({
-        center: [800, 400],
-        vertices: Array.from(new Array(3).keys()).map(
-          (i) =>
-            [
-              50 * Math.cos(-Math.PI / 2 + i * ((2 * Math.PI) / 3)),
-              50 * Math.sin(-Math.PI / 2 + i * ((2 * Math.PI) / 3)),
-            ] as vec2,
-        ),
-        angle: 0,
-        knobAngleOffset: -Math.PI / 2,
-      }),
-      new RectangleGlass({
-        center: [1400, 400],
-        width: 50,
-        height: 100,
-        angle: Math.PI / 6,
-      }),
+      // new CircleGlass({
+      //   center: [200, 400],
+      //   radius: 50,
+      // }),
+      // new ConvexLensGlass({
+      //   center: [500, 400],
+      //   thickness: 25,
+      //   length: 100,
+      //   angle: 0,
+      // }),
+      // new ConcaveLensGlass({
+      //   center: [1100, 400],
+      //   thickness: 25,
+      //   length: 100,
+      //   angle: 0,
+      // }),
+      // new PolygonGlass({
+      //   center: [800, 400],
+      //   vertices: Array.from(new Array(3).keys()).map(
+      //     (i) =>
+      //       [
+      //         50 * Math.cos(-Math.PI / 2 + i * ((2 * Math.PI) / 3)),
+      //         50 * Math.sin(-Math.PI / 2 + i * ((2 * Math.PI) / 3)),
+      //       ] as vec2,
+      //   ),
+      //   angle: 0,
+      //   knobAngleOffset: -Math.PI / 2,
+      // }),
+      // new RectangleGlass({
+      //   center: [1400, 400],
+      //   width: 50,
+      //   height: 100,
+      //   angle: Math.PI / 6,
+      // }),
     ],
     [],
   );
   const lightsBase: Light[] = useMemo(
     () => [
-      new PointLight({
-        position: [600, 200],
-        wavelengths: { range: [400, 700], amplitude: 1 },
-      }),
-      new DirectionalLight({
-        position: [800, 200],
-        wavelengths: { range: [400, 700], amplitude: 1 },
-        angle: 0,
-        angleSpread: Math.PI / 6,
-      }),
-      new PlaneLight({
-        position: [1000, 200],
-        wavelengths: { range: [400, 700], amplitude: 1 },
-        length: 100,
-        angle: 0,
-      }),
+      // new PointLight({
+      //   position: [600, 200],
+      //   wavelengths: { range: [400, 700], amplitude: 1 },
+      // }),
+      // new DirectionalLight({
+      //   position: [800, 200],
+      //   wavelengths: { range: [400, 700], amplitude: 1 },
+      //   angle: 0,
+      //   angleSpread: Math.PI / 6,
+      // }),
+      // new PlaneLight({
+      //   position: [1000, 200],
+      //   wavelengths: { range: [400, 700], amplitude: 1 },
+      //   length: 100,
+      //   angle: 0,
+      // }),
     ],
     [],
   );
   const [glasses, setGlasses] = useState(glassesBase);
   const [lights, setLights] = useState(lightsBase);
-  const [selected, setSelected] = useState<Glass | Light | null>(null);
+  const [selected, setSelected] = useState<Knobby | null>(null);
+  const [adding, setAdding] = useState<Knobby | null>(null);
 
   const [menuShown, setMenuShown] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [menuLast, setMenuLast] = useState<Knobby | null>(null);
+  useEffect(() => {
+    setMenuShown(!adding);
+  }, [adding]);
+  useEffect(() => {
+    if (selected instanceof Glass && menuLast instanceof Glass) return;
+    if (selected instanceof Light && menuLast instanceof Light) return;
+    if (selected == null && menuLast == null) return;
+    setMenuOpen(false);
+  }, [selected]);
+  useEffect(() => {
+    if (!menuShown) {
+      setMenuOpen(false);
+      setMenuLast(null);
+      return;
+    }
+    if (!menuOpen) return;
+    setMenuLast(selected);
+  }, [selected, menuShown, menuOpen]);
   const [menu, setMenu] = useState<HTMLDivElement | null>(null);
   const [menuWidth, setMenuWidth] = useState(0);
   const [menuHeight, setMenuHeight] = useState(0);
@@ -115,6 +135,8 @@ export default function App() {
         lights={lights}
         selected={selected}
         setSelected={setSelected}
+        adding={adding}
+        clearAdding={() => setAdding(null)}
       />
       <AnimatePresence>
         {menuShown && (
@@ -152,7 +174,12 @@ export default function App() {
                 scale: 1,
                 width: menuWidth + "px",
                 height: menuHeight + "px",
-                transition: { scale: { delay: 0.3 } },
+                transition: {
+                  scale: { delay: 0.3 },
+                  duration: 0.5,
+                  type: "spring",
+                  bounce: 0.25,
+                },
               }}
               exit={{ scale: 0 }}
               className="absolute bottom-0 left-0 rounded-3xl bg-white/15 pointer-events-none -z-1 backdrop-blur-lg"
@@ -173,19 +200,29 @@ export default function App() {
                     exit={{ opacity: 0 }}
                     className="mx-3 text-sm"
                   >
-                    {selected instanceof Glass && (
+                    {menuLast instanceof Glass && (
                       <GlassMenu
-                        glass={selected}
+                        glass={menuLast}
                         update={() => setGlasses([...glasses])}
                       />
                     )}
-                    {selected instanceof Light && (
+                    {menuLast instanceof Light && (
                       <LightMenu
-                        light={selected}
+                        light={menuLast}
                         update={() => setLights([...lights])}
                       />
                     )}
-                    {!selected && <AddMenu />}
+                    {!menuLast && (
+                      <AddMenu
+                        add={(thing) => {
+                          if (thing instanceof Glass) glasses.push(thing);
+                          if (thing instanceof Light) lights.push(thing);
+                          setGlasses([...glasses]);
+                          setLights([...lights]);
+                          setAdding(thing);
+                        }}
+                      />
+                    )}
                   </motion.div>
                 </>
               )}

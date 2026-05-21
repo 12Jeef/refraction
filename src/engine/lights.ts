@@ -7,31 +7,42 @@ import type {
   Wavelengths,
 } from "../types";
 import { dot, lerp, projComp } from "../util";
-import { drawBarPath, drawPlusPath, drawTrianglePath, Knob } from "./knob";
+import {
+  drawBarPath,
+  drawPlusPath,
+  drawTrianglePath,
+  Knob,
+  Knobby,
+} from "./knob";
 
-export abstract class Light {
+export abstract class Light extends Knobby {
   public position: vec2;
   public wavelengths: Wavelengths;
-  public readonly knobs: Knob[];
   public value: number;
 
+  public readonly positionKnob: Knob;
+
   public constructor({ position, wavelengths }: LightProps) {
+    super();
     this.position = position;
     this.wavelengths = wavelengths;
-    this.knobs = [];
     this.value = 0;
 
-    this.knobs.push(
-      new Knob(
-        (p) => (this.position = p),
-        () => this.position,
-        drawPlusPath(() => this.position),
-      ),
+    this.positionKnob = new Knob(
+      (p) => (this.position = p),
+      () => this.position,
+      drawPlusPath(() => this.position),
     );
+
+    this.knobs.push(this.positionKnob);
   }
 
   public abstract emit(density: number): Ray[];
   public update(): void {}
+
+  public getAddKnobOrder(): Knob[][] {
+    return [[this.positionKnob]];
+  }
 }
 
 export class PointLight extends Light {
@@ -59,6 +70,9 @@ export class DirectionalLight extends Light {
   public angleSpread: number;
   private distance: number;
 
+  public readonly angleKnob: Knob;
+  public readonly angleSpreadKnob: Knob;
+
   public constructor({
     angle,
     angleSpread,
@@ -69,53 +83,53 @@ export class DirectionalLight extends Light {
     this.angleSpread = angleSpread;
     this.distance = 50;
 
-    this.knobs.push(
-      new Knob(
-        (p) => {
-          const dx = p[0] - this.position[0];
-          const dy = p[1] - this.position[1];
-          this.distance = Math.max(10, Math.hypot(dx, dy));
-          this.angle = Math.atan2(dy, dx);
-        },
+    this.angleKnob = new Knob(
+      (p) => {
+        const dx = p[0] - this.position[0];
+        const dy = p[1] - this.position[1];
+        this.distance = Math.max(10, Math.hypot(dx, dy));
+        this.angle = Math.atan2(dy, dx);
+      },
+      () => [
+        this.position[0] + Math.cos(this.angle) * this.distance,
+        this.position[1] + Math.sin(this.angle) * this.distance,
+      ],
+      drawBarPath(
         () => [
           this.position[0] + Math.cos(this.angle) * this.distance,
           this.position[1] + Math.sin(this.angle) * this.distance,
         ],
-        drawBarPath(
-          () => [
-            this.position[0] + Math.cos(this.angle) * this.distance,
-            this.position[1] + Math.sin(this.angle) * this.distance,
-          ],
-          () => this.angle,
-        ),
+        () => this.angle,
       ),
-      new Knob(
-        (p) => {
-          const dx = p[0] - this.position[0];
-          const dy = p[1] - this.position[1];
-          const d = Math.hypot(dx, dy);
-          this.distance = Math.max(10, d);
-          this.angleSpread = Math.acos(
-            dot([dx / d, dy / d], [Math.cos(this.angle), Math.sin(this.angle)]),
-          );
-        },
+    );
+    this.angleSpreadKnob = new Knob(
+      (p) => {
+        const dx = p[0] - this.position[0];
+        const dy = p[1] - this.position[1];
+        const d = Math.hypot(dx, dy);
+        this.distance = Math.max(10, d);
+        this.angleSpread = Math.acos(
+          dot([dx / d, dy / d], [Math.cos(this.angle), Math.sin(this.angle)]),
+        );
+      },
+      () => [
+        this.position[0] +
+          Math.cos(this.angle + this.angleSpread) * this.distance,
+        this.position[1] +
+          Math.sin(this.angle + this.angleSpread) * this.distance,
+      ],
+      drawBarPath(
         () => [
           this.position[0] +
             Math.cos(this.angle + this.angleSpread) * this.distance,
           this.position[1] +
             Math.sin(this.angle + this.angleSpread) * this.distance,
         ],
-        drawBarPath(
-          () => [
-            this.position[0] +
-              Math.cos(this.angle + this.angleSpread) * this.distance,
-            this.position[1] +
-              Math.sin(this.angle + this.angleSpread) * this.distance,
-          ],
-          () => this.angle + this.angleSpread,
-        ),
+        () => this.angle + this.angleSpread,
       ),
     );
+
+    this.knobs.push(this.angleKnob, this.angleSpreadKnob);
   }
 
   public emit(density: number): Ray[] {
@@ -147,6 +161,14 @@ export class DirectionalLight extends Light {
 
     this.distance = lerp(this.distance, 50, 0.1);
   }
+
+  public getAddKnobOrder(): Knob[][] {
+    return [
+      ...super.getAddKnobOrder(),
+      [this.angleKnob],
+      [this.angleSpreadKnob],
+    ];
+  }
 }
 
 export class PlaneLight extends Light {
@@ -154,53 +176,56 @@ export class PlaneLight extends Light {
   public angle: number;
   private distance: number;
 
+  public readonly angleKnob: Knob;
+  public readonly lengthKnob: Knob;
+
   public constructor({ length, angle, ...lightProps }: PlaneLightProps) {
     super(lightProps);
     this.length = length;
     this.angle = angle;
     this.distance = 50;
 
-    this.knobs.push(
-      new Knob(
-        (p) => {
-          const dx = p[0] - this.position[0];
-          const dy = p[1] - this.position[1];
-          this.distance = Math.max(10, Math.hypot(dx, dy));
-          this.angle = Math.atan2(dy, dx);
-        },
+    this.angleKnob = new Knob(
+      (p) => {
+        const dx = p[0] - this.position[0];
+        const dy = p[1] - this.position[1];
+        this.distance = Math.max(10, Math.hypot(dx, dy));
+        this.angle = Math.atan2(dy, dx);
+      },
+      () => [
+        this.position[0] + Math.cos(this.angle) * this.distance,
+        this.position[1] + Math.sin(this.angle) * this.distance,
+      ],
+      drawBarPath(
         () => [
           this.position[0] + Math.cos(this.angle) * this.distance,
           this.position[1] + Math.sin(this.angle) * this.distance,
         ],
-        drawBarPath(
-          () => [
-            this.position[0] + Math.cos(this.angle) * this.distance,
-            this.position[1] + Math.sin(this.angle) * this.distance,
-          ],
-          () => this.angle,
-        ),
+        () => this.angle,
       ),
-      new Knob(
-        (p) => {
-          const { perpB: perpVec } = projComp(
-            [p[0] - this.position[0], p[1] - this.position[1]],
-            [Math.cos(this.angle), Math.sin(this.angle)],
-          );
-          this.length = Math.max(20, Math.hypot(...perpVec)) * 2;
-        },
+    );
+    this.lengthKnob = new Knob(
+      (p) => {
+        const { perpB: perpVec } = projComp(
+          [p[0] - this.position[0], p[1] - this.position[1]],
+          [Math.cos(this.angle), Math.sin(this.angle)],
+        );
+        this.length = Math.max(20, Math.hypot(...perpVec)) * 2;
+      },
+      () => [
+        this.position[0] - Math.sin(this.angle) * (this.length / 2),
+        this.position[1] + Math.cos(this.angle) * (this.length / 2),
+      ],
+      drawTrianglePath(
         () => [
           this.position[0] - Math.sin(this.angle) * (this.length / 2),
           this.position[1] + Math.cos(this.angle) * (this.length / 2),
         ],
-        drawTrianglePath(
-          () => [
-            this.position[0] - Math.sin(this.angle) * (this.length / 2),
-            this.position[1] + Math.cos(this.angle) * (this.length / 2),
-          ],
-          () => this.angle + Math.PI / 2,
-        ),
+        () => this.angle + Math.PI / 2,
       ),
     );
+
+    this.knobs.push(this.angleKnob, this.lengthKnob);
   }
 
   public emit(density: number): Ray[] {
@@ -228,5 +253,9 @@ export class PlaneLight extends Light {
     super.update();
 
     this.distance = lerp(this.distance, 50, 0.1);
+  }
+
+  public getAddKnobOrder(): Knob[][] {
+    return [...super.getAddKnobOrder(), [this.angleKnob], [this.lengthKnob]];
   }
 }
