@@ -4,7 +4,7 @@ import type { Wavelengths } from "../types";
 import Dropdown from "./Dropdown";
 import { CgArrowsShrinkH } from "react-icons/cg";
 import { TbMathIntegral } from "react-icons/tb";
-import { wavelengthToRGB, wavelengthToRGBString } from "../util";
+import { wavelengthToRGBString } from "../util";
 import { IoAddSharp, IoCloseSharp } from "react-icons/io5";
 import WavelengthBar from "./WavelengthBar";
 import { sample, type ControlPoints } from "../engine/graph";
@@ -287,7 +287,7 @@ function Function({
             }}
             xRange={[350, 800]}
             yRange={[0, 1]}
-            renderSlice={(ctx, x, y, cx, cy, w, h) => {
+            renderSlice={(ctx, x, _, cx, cy, w, h) => {
               ctx.globalAlpha = 0.1;
               ctx.fillStyle = wavelengthToRGBString(x, 1);
               ctx.fillRect(cx, cy, w, h);

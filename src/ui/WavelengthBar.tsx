@@ -1,6 +1,6 @@
 import { useEffect, useRef, type HTMLAttributes } from "react";
 import type { vec2 } from "../types";
-import { lerp, wavelengthToRGB, wavelengthToRGBString } from "../util";
+import { lerp, wavelengthToRGBString } from "../util";
 
 export type WavelengthBarProps = {
   range: vec2;

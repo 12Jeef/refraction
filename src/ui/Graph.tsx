@@ -342,7 +342,7 @@ export default function Graph({
       draggedRef.current.drag(mouse);
       renderRequested = true;
     };
-    const onMouseUp = (e: MouseEvent) => {
+    const onMouseUp = () => {
       draggedRef.current = null;
     };
     const onKeyDown = (e: KeyboardEvent) => {

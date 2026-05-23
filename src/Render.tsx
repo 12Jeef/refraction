@@ -285,9 +285,8 @@ export default function Render({
       setSelected(dragged?.thing ?? null);
       if ((dragged?.knobs.length ?? 0) <= 0) dragged = null;
     };
-    const onMouseUp = (e: MouseEvent) => {
+    const onMouseUp = () => {
       if (adding) return;
-      if (!dragged) return;
       dragged = null;
     };
     const onMouseMove = (e: MouseEvent) => {
