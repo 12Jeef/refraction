@@ -29,8 +29,9 @@ export default function Dropdown<T>({
       setOpen(false);
     };
     document.body.addEventListener("mousedown", onMouseDown, true);
-    return () =>
+    return () => {
       document.body.removeEventListener("mousedown", onMouseDown, true);
+    };
   }, [ref, open]);
 
   return (

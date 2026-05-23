@@ -281,6 +281,7 @@ export const wavelengthToRGB = (
   wavelength: number,
   amplitude: number,
 ): vec3 => {
+  if (amplitude <= 0) return [0, 0, 0];
   const rgb: vec3 = [0, 0, 0];
   if (wavelength >= 380 && wavelength < 440) {
     rgb[0] = -(wavelength - 440) / (440 - 380);

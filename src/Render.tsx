@@ -15,6 +15,7 @@ export type RenderProps = {
   setSelected: (selected: Knobby | null) => void;
   adding: Knobby | null;
   clearAdding: () => void;
+  bindKeys?: boolean;
 };
 
 export default function Render({
@@ -26,6 +27,7 @@ export default function Render({
   setSelected,
   adding,
   clearAdding,
+  bindKeys = true,
 }: RenderProps) {
   const ref = useRef<HTMLDivElement>(null);
   const lightCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -295,14 +297,15 @@ export default function Render({
       simulateLightsRequested = true;
     };
     const onKeyDown = (e: KeyboardEvent) => {
+      if (!bindKeys) return;
       if (e.key === "Escape") {
         setSelected(null);
         clearAdding();
       }
       if (e.key === "Backspace" || e.key === "Delete") {
-        if (selected) {
-          setGlasses(glasses.filter((g) => g !== selected));
-          setLights(lights.filter((l) => l !== selected));
+        if (selectedRef.current) {
+          setGlasses(glasses.filter((g) => g !== selectedRef.current));
+          setLights(lights.filter((l) => l !== selectedRef.current));
           setSelected(null);
         }
       }
@@ -328,6 +331,7 @@ export default function Render({
     selectedRef,
     adding,
     addKnobI,
+    bindKeys,
   ]);
 
   return (

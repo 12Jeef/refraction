@@ -1,4 +1,5 @@
 import type { Glass } from "./engine/glass";
+import type { ControlPoints } from "./engine/graph";
 
 export type vec2 = [number, number];
 export type vec3 = [number, number, number];
@@ -16,6 +17,7 @@ export type Wavelengths =
   | {
       range: vec2;
       amplitude: number | ((wavelength: number) => number);
+      pts?: ControlPoints;
     };
 
 export type Ray = {

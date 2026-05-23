@@ -7,6 +7,8 @@ import { TbMathIntegral } from "react-icons/tb";
 import { wavelengthToRGB } from "../util";
 import { IoAddSharp, IoCloseSharp } from "react-icons/io5";
 import WavelengthBar from "./WavelengthBar";
+import { sample, type ControlPoints } from "../engine/graph";
+import Graph from "./Graph";
 
 export type WavelengthsType = "POINTS" | "RANGE" | "FUNCTION";
 const wavelengthsTypes: WavelengthsType[] = ["POINTS", "RANGE", "FUNCTION"];
@@ -23,7 +25,15 @@ export const getWavelengthsType = (
 export const fromWavelengthsType = (type: WavelengthsType): Wavelengths => {
   if (type === "POINTS") return { length: 460, amplitude: 1 };
   if (type === "RANGE") return { range: [400, 700], amplitude: 1 };
-  return { range: [400, 700], amplitude: () => 1 };
+  const pts: ControlPoints = [
+    { x: 400, y: 1, m: 0 },
+    { x: 700, y: 1, m: 0 },
+  ];
+  return {
+    range: [400, 700],
+    amplitude: (l) => sample(pts, l).y,
+    pts,
+  };
 };
 
 function Points({
@@ -141,9 +151,11 @@ function Points({
 function RangeSelector({
   wavelengths,
   set,
+  width,
 }: {
   wavelengths: Wavelengths;
   set: (value: Wavelengths) => void;
+  width: number;
 }) {
   if (!("range" in wavelengths)) return <></>;
   const [l, r] = wavelengths.range;
@@ -160,7 +172,10 @@ function RangeSelector({
         }}
         type="number"
       />
-      <div className="relative min-w-50 max-w-50 flex flex-col items-center justify-center">
+      <div
+        className="relative flex flex-col items-center justify-center"
+        style={{ width: `${width}rem` }}
+      >
         <WavelengthBar
           range={[350, 800]}
           className="absolute! w-full h-1 top-1/2 -translate-y-1/2 -z-1"
@@ -228,7 +243,7 @@ function Range({
   if (typeof wavelengths.amplitude !== "number") return <></>;
   return (
     <div className="flex flex-row items-center justify-start gap-2">
-      <RangeSelector wavelengths={wavelengths} set={set} />
+      <RangeSelector wavelengths={wavelengths} set={set} width={20} />
       <input
         className="min-w-10 max-w-10 outline-none"
         value={wavelengths.amplitude}
@@ -256,8 +271,31 @@ function Function({
   if (!("range" in wavelengths)) return <></>;
   if (typeof wavelengths.amplitude === "number") return <></>;
   return (
-    <div className="flex flex-row items-center justify-start gap-2">
-      <RangeSelector wavelengths={wavelengths} set={set} />
+    <div className="flex flex-col items-start justify-start gap-2">
+      {wavelengths.pts && (
+        <div
+          style={{
+            marginLeft: "calc(3rem - 20px)",
+            marginRight: "calc(3rem - 20px)",
+          }}
+        >
+          <Graph
+            className="h-90 bg-black/20"
+            style={{ width: "calc(30rem + 40px)" }}
+            pts={wavelengths.pts}
+            setPts={(pts) => {
+              wavelengths.pts = pts;
+              wavelengths.amplitude = (l) => sample(pts, l).y;
+              set(wavelengths);
+            }}
+            xRange={[350, 800]}
+            yRange={[0, 1]}
+          />
+        </div>
+      )}
+      <div className="flex flex-row items-center justify-start gap-2">
+        <RangeSelector wavelengths={wavelengths} set={set} width={30} />
+      </div>
     </div>
   );
 }
