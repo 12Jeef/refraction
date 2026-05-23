@@ -1,6 +1,6 @@
 import { useEffect, useRef, type HTMLAttributes } from "react";
 import type { vec2 } from "../types";
-import { lerp, wavelengthToRGB } from "../util";
+import { lerp, wavelengthToRGB, wavelengthToRGBString } from "../util";
 
 export type WavelengthBarProps = {
   range: vec2;
@@ -21,10 +21,10 @@ export default function WavelengthBar({
     canvas.width = 100;
     canvas.height = 1;
     for (let i = 0; i < canvas.width; i++) {
-      const rgb = wavelengthToRGB(lerp(...range, i / canvas.width), 1);
-      const rgbMax = Math.max(...rgb);
-      for (let j = 0; j < 3; j++) rgb[j] *= 255 / Math.max(1, rgbMax);
-      ctx.fillStyle = `rgb(${rgb.join(",")})`;
+      ctx.fillStyle = wavelengthToRGBString(
+        lerp(...range, i / canvas.width),
+        1,
+      );
       ctx.fillRect(i, 0, 1, 1);
     }
   }, [range, ref]);

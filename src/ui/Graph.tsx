@@ -9,12 +9,27 @@ import type { vec2 } from "../types";
 import { lerp } from "../util";
 import { Knob } from "../engine/knob";
 
+type Conversion = (v: number) => number;
+
 export type GraphProps = {
   pts: ControlPoints;
   setPts: (pts: ControlPoints) => void;
   xRange?: vec2;
   yRange?: vec2;
-  render?: (ctx: CanvasRenderingContext2D) => void;
+  render?: (
+    ctx: CanvasRenderingContext2D,
+    toCanvasX: Conversion,
+    toCanvasY: Conversion,
+  ) => void;
+  renderSlice?: (
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    cx: number,
+    cy: number,
+    w: number,
+    h: number,
+  ) => void;
 } & HTMLAttributes<HTMLDivElement>;
 
 export default function Graph({
@@ -23,6 +38,7 @@ export default function Graph({
   xRange,
   yRange,
   render,
+  renderSlice,
   className = "",
   ...props
 }: GraphProps) {
@@ -53,10 +69,10 @@ export default function Graph({
     let lastMinY = Infinity,
       lastMaxY = -Infinity;
     let lastPadding = -1;
-    let toCanvasX: (x: number) => number = (x) => x;
-    let toCanvasY: (y: number) => number = (y) => y;
-    let fromCanvasX: (x: number) => number = (x) => x;
-    let fromCanvasY: (y: number) => number = (y) => y;
+    let toCanvasX: Conversion = (x) => x;
+    let toCanvasY: Conversion = (y) => y;
+    let fromCanvasX: Conversion = (x) => x;
+    let fromCanvasY: Conversion = (y) => y;
 
     let renderRequested = true;
 
@@ -208,23 +224,41 @@ export default function Graph({
       canvas.height = rect.height * window.devicePixelRatio;
       canvas.style.width = rect.width + "px";
       canvas.style.height = rect.height + "px";
-      render?.(ctx);
+      render?.(ctx, toCanvasX, toCanvasY);
       ctx.globalCompositeOperation = "source-over";
       ctx.fillStyle = ctx.strokeStyle = "#ffffff";
       ctx.lineWidth = 2 * window.devicePixelRatio;
       ctx.beginPath();
+      const slices: [number, number, number, number, number, number][] = [];
       let first = true;
       for (
         let cx = padding;
         cx <= canvas.width - padding;
         cx += 2.5 * window.devicePixelRatio
       ) {
-        const cy = toCanvasY(
-          sample(
-            pts,
-            lerp(minX, maxX, (cx - padding) / (canvas.width - 2 * padding)),
-          ).y,
+        const x = lerp(
+          minX,
+          maxX,
+          (cx - padding) / (canvas.width - 2 * padding),
         );
+        const y = sample(pts, x).y;
+        const cy = toCanvasY(y);
+        const cyClamp = Math.max(
+          padding,
+          Math.min(canvas.height - padding, cy),
+        );
+        slices.push([
+          x,
+          y,
+          cx,
+          cyClamp,
+          2.5 * window.devicePixelRatio,
+          canvas.height - padding - cyClamp,
+        ]);
+        if (cy < padding || cy > canvas.height - padding) {
+          first = true;
+          continue;
+        }
         if (first) {
           first = false;
           ctx.moveTo(cx, cy);
@@ -233,6 +267,10 @@ export default function Graph({
         ctx.lineTo(cx, cy);
       }
       ctx.stroke();
+      ctx.save();
+      ctx.globalCompositeOperation = "destination-over";
+      for (const slice of slices) renderSlice?.(ctx, ...slice);
+      ctx.restore();
       for (let i = 0; i < pts.length; i++) {
         ctx.fillStyle = ctx.strokeStyle =
           selectedRef.current === i ? "#0088ff" : "#ffffff";
@@ -281,7 +319,11 @@ export default function Graph({
       ];
       if (draggedRef.current) return;
       const found = find(mouse);
-      if (!found) return (selectedRef.current = -1);
+      if (!found) {
+        selectedRef.current = -1;
+        renderRequested = true;
+        return;
+      }
       if ("x" in found) {
         const pts = sortControlPoints([...ptsRef.current, found]);
         dragRequestRef.current = pts.indexOf(found) * 3;
@@ -312,6 +354,7 @@ export default function Graph({
           ptsRef.current.splice(selectedRef.current, 1);
           selectedRef.current = -1;
           setPts([...ptsRef.current]);
+          renderRequested = true;
         }
       }
     };

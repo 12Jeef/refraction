@@ -4,7 +4,7 @@ import type { Wavelengths } from "../types";
 import Dropdown from "./Dropdown";
 import { CgArrowsShrinkH } from "react-icons/cg";
 import { TbMathIntegral } from "react-icons/tb";
-import { wavelengthToRGB } from "../util";
+import { wavelengthToRGB, wavelengthToRGBString } from "../util";
 import { IoAddSharp, IoCloseSharp } from "react-icons/io5";
 import WavelengthBar from "./WavelengthBar";
 import { sample, type ControlPoints } from "../engine/graph";
@@ -76,9 +76,6 @@ function Points({
       {keys.map((i) => {
         const length = lengths[i];
         const amplitude = amplitudes[i];
-        const rgb = wavelengthToRGB(length, amplitude);
-        const rgbMax = Math.max(...rgb);
-        for (let i = 0; i < 3; i++) rgb[i] *= 255 / Math.max(rgbMax, 1);
         return (
           <div
             key={i}
@@ -87,7 +84,7 @@ function Points({
             <div
               className="min-w-4 max-w-4 h-2 rounded-full"
               style={{
-                background: `rgb(${rgb.join(",")})`,
+                background: wavelengthToRGBString(length, amplitude),
               }}
             ></div>
             <div className="min-w-40 max-w-40 flex flex-row items-center justify-center gap-0">
@@ -290,6 +287,11 @@ function Function({
             }}
             xRange={[350, 800]}
             yRange={[0, 1]}
+            renderSlice={(ctx, x, y, cx, cy, w, h) => {
+              ctx.globalAlpha = 0.1;
+              ctx.fillStyle = wavelengthToRGBString(x, 1);
+              ctx.fillRect(cx, cy, w, h);
+            }}
           />
         </div>
       )}

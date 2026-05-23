@@ -358,3 +358,13 @@ export const wavelengthsToRGB = (
   }
   return rgb;
 };
+
+export const wavelengthToRGBString = (
+  wavelength: number,
+  amplitude: number,
+): string => {
+  const rgb = wavelengthToRGB(wavelength, amplitude);
+  const rgbMax = Math.max(...rgb);
+  for (let i = 0; i < 3; i++) rgb[i] *= 255 / Math.max(rgbMax, 1);
+  return `rgb(${rgb.join(",")})`;
+};
