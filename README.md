@@ -1,6 +1,8 @@
 ![Example](./example.png)
 
-<h1 style="text-align: center; letter-spacing: 0.2em;">REFR<span style="display: inline-block; font-family: monospace; transform: scale(1.2) translate(0.04em, -0.09em)">▲</span>CTION</h1>
+<div>
+<h1 align="center"><img src="./banner.svg" /></h1>
+</div>
 
 Refraction is a web-based ray optics simulator. It handles rendering and configuration of certain elements through a seamless UI/UX experience.
 
